@@ -18,8 +18,8 @@ renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.setAnimationLoop( animate );
 document.body.appendChild( renderer.domElement );
 
-camera.position.set(0, 1.7, 0);
-camera.lookAt(0, 1.7, -10);
+camera.position.set(0, 2, 0);
+camera.lookAt(0, 2, -10);
 
 // Transformation Matrices
 
@@ -106,11 +106,12 @@ for(let key in HIT_ZONES) {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.copy(center);
+    mesh.translateY(1);
     scene.add(mesh);
 
     // Add directional indicator
     const triangle = new THREE.Mesh(triangleGeometry, triangleMaterial);
-    triangle.position.set(center.x, center.y + 2, center.z);
+    triangle.position.set(center.x, center.y + 3, center.z);
     triangle.rotation.z = zone.triangleRotation;
 
     scene.add(triangle);
@@ -131,7 +132,7 @@ const activeNotes = [];
 function spawnNote() {
     const lanePositions = [-3, -1, 1, 3];
     const lane = Math.floor(Math.random() * 4);
-    const note = createNote(lanePositions[lane], 1, -25);
+    const note = createNote(lanePositions[lane], 2, -25);
     activeNotes.push(note);
 }
 
