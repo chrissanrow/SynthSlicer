@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 // ---Game constants/variables---
 
@@ -138,6 +139,40 @@ function spawnNote() {
 
 setInterval(spawnNote, 1000);
 
+// score text
+const loader = new FontLoader();
+loader.load(
+    'Trench_Thin.json',
+    function (font) {
+        console.log('FONT LOADED');
+        // Make the debug text much smaller and centered so it's easy to spot.
+        const geometry = new TextGeometry('SCORE:', {
+            font: font,
+            size: 1,
+            depth: 0.1,
+            height: 1,
+            curveSegments: 5,
+            bevelEnabled: false
+        });
+
+        // Center geometry so origin is in the middle of the text
+        if (geometry.center) geometry.center();
+        geometry.computeBoundingBox && geometry.computeBoundingBox();
+
+        // Use a basic material (ignores lighting) and double-sided so we can always see it while debugging
+        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const textMesh = new THREE.Mesh(geometry, material);
+        // place text in front of the camera
+        textMesh.position.set(0, 0, -4);
+        textMesh.rotateX(-Math.PI / 2);
+        scene.add(textMesh);
+    },
+    undefined,
+    function (err) {
+        console.error('FONT LOAD ERROR:', err);
+    }
+);
+
 // ---Controls---
 
 function onKeyDown(event) {
@@ -176,7 +211,8 @@ function checkHit(key) {
             // TODO: Create note hit effect
             scene.remove(note);
             activeNotes.splice(i, 1);
-            console.log('Hit detected!');
+            score += 1;
+            console.log('score:', score);
             return;
         }
     }
@@ -195,7 +231,7 @@ function animate() {
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
         note.position.z += NOTE_SPEED; // Move note towards the player
-        if(note.position.z > 10) {
+        if(note.position.z > -3) {
             scene.remove(note);
             activeNotes.splice(i, 1);
         }
