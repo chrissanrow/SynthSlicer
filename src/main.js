@@ -21,6 +21,22 @@ const renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
 renderer.setAnimationLoop( animate );
 document.body.appendChild( renderer.domElement );
+renderer.shadowMap.enabled = true;
+
+
+const hitSpheres = [];
+
+const hitSphereGeometry = new THREE.SphereGeometry(0.7, 16, 16);
+const hitSPhereMaterial = new THREE.MeshBasicMaterial({
+    color: 0x800080,
+    transparent: true, 
+    opacity: 1.0
+})
+
+/* let hitShere = new THREE.Mesh(hitSphereGeometry, hitSPhereMaterial);
+hitShere.position.set(0, 2, -5);
+scene.add(hitShere); */
+
 
 camera.position.set(0, 2, 0);
 camera.lookAt(0, 2, -10);
@@ -316,6 +332,7 @@ const trackMaterialProperties = {
 };
 const trackMaterial = obscuredMaterial(trackMaterialProperties);
 const track = new THREE.Mesh( trackGeometry, trackMaterial );
+track.receiveShadow = true;
 track.rotation.x = -Math.PI / 2;
 track.position.y = 0;
 track.position.z = -200;
@@ -377,6 +394,7 @@ const noteMaterial = obscuredMaterial(noteMaterialProperties);
 function createNote(positionX, positionY, positionZ) {
     const note = new THREE.Mesh(noteGeometry, noteMaterial.clone());
     note.position.set(positionX, positionY, positionZ);
+    note.castShadow = true;
     scene.add(note);
     return note;
 }
@@ -499,6 +517,10 @@ function checkHit(key) {
         const noteBox = new THREE.Box3().setFromObject(note);
         if(zone.box.intersectsBox(noteBox)) {
             // TODO: Create note hit effect
+            const hitSphere = new THREE.Mesh(hitSphereGeometry, hitSPhereMaterial.clone());
+            hitSphere.position.copy(note.position);
+            scene.add(hitSphere);
+            hitSpheres.push(hitSphere);
             scene.remove(note);
             activeNotes.splice(i, 1);
             score += 1;
@@ -525,6 +547,21 @@ function animate() {
         if(note.position.z > -2.5) {
             scene.remove(note);
             activeNotes.splice(i, 1);
+        }
+    }
+
+    for(let j = hitSpheres.length - 1; j >= 0; j--)
+    {
+        const hitShere = hitSpheres[j];
+
+        hitShere.material.opacity -= 0.04;
+        hitShere.scale.x *= 1.08; 
+        hitShere.scale.y *= 1.08; 
+
+        if (hitShere.material.opacity <= 0)
+        {
+            scene.remove(hitShere);
+            hitSpheres.splice(j, 1);
         }
     }
 
