@@ -6,6 +6,9 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
 const HIT_ZONE_Z = -5;
 const NOTE_SPEED = 0.2;
+let gameRunning = false;
+let spawnInterval = 0;
+let lastSpawnTime = 0;
 
 let score = 0;
 
@@ -389,7 +392,9 @@ function spawnNote() {
     activeNotes.push(note);
 }
 
-setInterval(spawnNote, 1000);
+function randSpawnInterval() {
+    return Math.random() * 1000 + 200; // between 200ms and 1200ms
+}
 
 // score text
 // const loader = new FontLoader();
@@ -474,6 +479,18 @@ function onKeyDown(event) {
         case 'ArrowRight':
             checkHit(key);
             break;
+        case 'Enter':
+            gameRunning = true;
+            startMusic();
+            break;
+        case 'Escape':
+            gameRunning = !gameRunning;
+            if(gameRunning) {
+                startMusic();
+            } else {
+                pauseMusic();
+            }
+            break;
     }
 }
 
@@ -508,13 +525,19 @@ function checkHit(key) {
     }
 }
 
-
 document.addEventListener('keydown', onKeyDown, false);
 
 function animate() {
 
+    if(!gameRunning) return;
+    
     let time = clock.getElapsedTime();
 
+    if(time - lastSpawnTime > spawnInterval / 1000) {
+        spawnNote();
+        lastSpawnTime = time;
+        spawnInterval = randSpawnInterval();
+    }
     updateObscuredUniforms(track);
 
     // Move active notes and update their uniforms
@@ -531,3 +554,14 @@ function animate() {
 	renderer.render( scene, camera );
 }
 
+// --- MUSIC LOGIC ---
+
+// load audio with vite
+
+const audio = new Audio('../public/audio/2010JB.mp3');
+function startMusic() {
+    audio.play();
+}
+function pauseMusic() {
+    audio.pause();
+}
