@@ -9,6 +9,8 @@ const NOTE_SPEED = 0.2;
 
 let score = 0;
 
+const clock = new THREE.Clock();
+
 // ---Three.js Setup---
 
 const scene = new THREE.Scene();
@@ -140,38 +142,76 @@ function spawnNote() {
 setInterval(spawnNote, 1000);
 
 // score text
-const loader = new FontLoader();
-loader.load(
-    'Trench_Thin.json',
-    function (font) {
-        console.log('FONT LOADED');
-        // Make the debug text much smaller and centered so it's easy to spot.
-        const geometry = new TextGeometry('SCORE:', {
-            font: font,
-            size: 1,
-            depth: 0.1,
-            height: 1,
-            curveSegments: 5,
-            bevelEnabled: false
-        });
+// const loader = new FontLoader();
+// loader.load(
+//     'fonts/Trench_Thin.json',
+//     function (font) {
+//         console.log('FONT LOADED');
+//         // Make the debug text much smaller and centered so it's easy to spot.
+//         const geometry = new TextGeometry('SCORE:', {
+//             font: font,
+//             size: 1,
+//             depth: 0.1,
+//             height: 1,
+//             curveSegments: 5,
+//             bevelEnabled: false
+//         });
 
-        // Center geometry so origin is in the middle of the text
-        if (geometry.center) geometry.center();
-        geometry.computeBoundingBox && geometry.computeBoundingBox();
+//         // Center geometry so origin is in the middle of the text
+//         if (geometry.center) geometry.center();
+//         geometry.computeBoundingBox && geometry.computeBoundingBox();
 
-        // Use a basic material (ignores lighting) and double-sided so we can always see it while debugging
-        const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const textMesh = new THREE.Mesh(geometry, material);
-        // place text in front of the camera
-        textMesh.position.set(0, 0, -4);
-        textMesh.rotateX(-Math.PI / 2);
-        scene.add(textMesh);
-    },
-    undefined,
-    function (err) {
-        console.error('FONT LOAD ERROR:', err);
-    }
-);
+//         // Use a basic material (ignores lighting) and double-sided so we can always see it while debugging
+//         const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+//         const textMesh = new THREE.Mesh(geometry, material);
+//         // place text in front of the camera
+//         textMesh.position.set(0, 0, -4);
+//         textMesh.rotateX(-Math.PI / 2);
+//         scene.add(textMesh);
+//     },
+//     undefined,
+//     function (err) {
+//         console.error('FONT LOAD ERROR:', err);
+//     }
+// );
+
+// 1. Create HTML canvas
+const canvas = document.createElement('canvas');
+canvas.width = 256;
+canvas.height = 128;
+const ctx = canvas.getContext('2d');
+await document.fonts.load('48px Trench');
+ctx.font = '48px Trench';
+ctx.fillStyle = 'white';
+ctx.textAlign = 'center';
+ctx.textBaseline = 'middle';
+ctx.shadowColor = 'black';
+ctx.shadowOffsetX = 2;
+ctx.shadowOffsetY = 2;
+ctx.shadowBlur = 4;
+const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+gradient.addColorStop(0, 'blue');
+gradient.addColorStop(1, 'green');
+ctx.fillStyle = gradient;
+
+// initial text
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+ctx.fillText('Score: 0', canvas.width/2, canvas.height/2);
+
+// make texture and sprite
+const texture = new THREE.CanvasTexture(canvas);
+const material = new THREE.SpriteMaterial({ map: texture });
+const scoreSprite = new THREE.Sprite(material);
+scoreSprite.scale.set(4, 2, 1);
+scoreSprite.position.set(0, 4.5, -4);
+scene.add(scoreSprite);
+
+// dynamically update text
+function updateScore() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillText('Score: ' + score, canvas.width/2, canvas.height/2);
+    texture.needsUpdate = true; 
+}
 
 // ---Controls---
 
@@ -212,6 +252,7 @@ function checkHit(key) {
             scene.remove(note);
             activeNotes.splice(i, 1);
             score += 1;
+            updateScore();
             console.log('score:', score);
             return;
         }
@@ -220,8 +261,6 @@ function checkHit(key) {
 
 
 document.addEventListener('keydown', onKeyDown, false);
-
-let clock = new THREE.Clock();
 
 function animate() {
 
