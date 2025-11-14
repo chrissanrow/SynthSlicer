@@ -494,7 +494,6 @@ function checkHit(key) {
             activeNotes.splice(i, 1);
             score += 1;
             updateScore();
-            console.log('score:', score);
             return;
         }
     }
@@ -512,8 +511,7 @@ function animate() {
         const note = activeNotes[i];
         updateNoteUniforms(note);
         note.position.z += NOTE_SPEED;
-        console.log(note.position.z);
-        if(note.position.z > -3) {
+        if(note.position.z > -2.5) {
             scene.remove(note);
             activeNotes.splice(i, 1);
         }
