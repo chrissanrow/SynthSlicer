@@ -14,6 +14,7 @@ const clock = new THREE.Clock();
 // ---Three.js Setup---
 
 const scene = new THREE.Scene();
+scene.background = new THREE.Color( 0.5, 0.5, 0.5 ); // Sky blue background
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
 const renderer = new THREE.WebGLRenderer();
@@ -60,6 +61,235 @@ function rotationMatrixZ(theta) {
         0, 0, 1, 0,
         0, 0, 0, 1
     );
+}
+
+// Atmospheric Attenuation Material with Phong Shading
+function obscuredMaterial(materialProperties) {
+    const numLights = 2;
+    
+    // convert shape_color1 to a Vector4
+    let shape_color_representation = new THREE.Color(materialProperties.color);
+    let shape_color = new THREE.Vector4(
+        shape_color_representation.r,
+        shape_color_representation.g,
+        shape_color_representation.b,
+        1.0
+    );
+
+    // Vertex Shader
+    let vertexShader = `
+        precision mediump float;
+        const int N_LIGHTS = ${numLights};
+        uniform float ambient, diffusivity, specularity, smoothness;
+        uniform vec4 light_positions_or_vectors[N_LIGHTS];
+        uniform vec4 light_colors[N_LIGHTS];
+        uniform float light_attenuation_factors[N_LIGHTS];
+        uniform vec4 shape_color;
+        uniform vec3 squared_scale;
+        uniform vec3 camera_center;
+        varying vec3 N, vertex_worldspace;
+
+        // ***** PHONG SHADING HAPPENS HERE: *****
+        vec3 phong_model_lights(vec3 N, vec3 vertex_worldspace) {
+            vec3 E = normalize(camera_center - vertex_worldspace); // View direction
+            vec3 result = vec3(0.0); // Initialize the output color
+            for(int i = 0; i < N_LIGHTS; i++) {
+                // Calculate the vector from the surface to the light source
+                vec3 surface_to_light_vector = light_positions_or_vectors[i].xyz - 
+                    light_positions_or_vectors[i].w * vertex_worldspace;
+                float distance_to_light = length(surface_to_light_vector); // Light distance
+                vec3 L = normalize(surface_to_light_vector); // Light direction
+                
+                // Phong uses the reflection vector R
+                vec3 R = reflect(-L, N); // Reflect L around the normal N
+                
+                float diffuse = max(dot(N, L), 0.0); // Diffuse term
+                float specular = pow(max(dot(R, E), 0.0), smoothness); // Specular term
+                
+                // Light attenuation
+                float attenuation = 1.0 / (1.0 + light_attenuation_factors[i] * distance_to_light * distance_to_light);
+                
+                // Calculate the contribution of this light source
+                vec3 light_contribution = shape_color.xyz * light_colors[i].xyz * diffusivity * diffuse
+                                        + light_colors[i].xyz * specularity * specular;
+                result += attenuation * light_contribution;
+            }
+            return result;
+        }
+
+        uniform mat4 model_transform;
+        uniform mat4 projection_camera_model_transform;
+
+        void main() {
+            gl_Position = projection_camera_model_transform * vec4(position, 1.0);
+            N = normalize(mat3(model_transform) * normal / squared_scale);
+            vertex_worldspace = (model_transform * vec4(position, 1.0)).xyz;
+        }
+    `;
+    // Fragment Shader
+    let fragmentShader = `
+        precision mediump float;
+        const int N_LIGHTS = ${numLights};
+        uniform float ambient, diffusivity, specularity, smoothness;
+        uniform vec4 light_positions_or_vectors[N_LIGHTS];
+        uniform vec4 light_colors[N_LIGHTS];
+        uniform float light_attenuation_factors[N_LIGHTS];
+        uniform vec4 shape_color;
+        uniform vec3 camera_center;
+        varying vec3 N, vertex_worldspace;
+
+        // ***** PHONG SHADING HAPPENS HERE: *****
+        vec3 phong_model_lights(vec3 N, vec3 vertex_worldspace) {
+            vec3 E = normalize(camera_center - vertex_worldspace); // View direction
+            vec3 result = vec3(0.0); // Initialize the output color
+            for(int i = 0; i < N_LIGHTS; i++) {
+                // Calculate the vector from the surface to the light source
+                vec3 surface_to_light_vector = light_positions_or_vectors[i].xyz - 
+                    light_positions_or_vectors[i].w * vertex_worldspace;
+                float distance_to_light = length(surface_to_light_vector); // Light distance
+                vec3 L = normalize(surface_to_light_vector); // Light direction
+                
+                // Phong uses the reflection vector R
+                vec3 R = reflect(-L, N); // Reflect L around the normal N
+                
+                float diffuse = max(dot(N, L), 0.0); // Diffuse term
+                float specular = pow(max(dot(R, E), 0.0), smoothness); // Specular term
+                
+                // Light attenuation
+                float attenuation = 1.0 / (1.0 + light_attenuation_factors[i] * distance_to_light * distance_to_light);
+                
+                // Calculate the contribution of this light source
+                vec3 light_contribution = shape_color.xyz * light_colors[i].xyz * diffusivity * diffuse
+                                        + light_colors[i].xyz * specularity * specular;
+                result += attenuation * light_contribution;
+            }
+            return result;
+        }
+
+        uniform vec4 fog_color;
+        uniform float zf;
+        uniform float zb;
+        uniform float sf;
+        uniform float sb;
+
+        void main() {
+            // Compute an initial (ambient) color:
+            vec4 color = vec4(shape_color.xyz * ambient, shape_color.w);
+            // Compute the final color with contributions from lights:
+            color.xyz += phong_model_lights(normalize(N), vertex_worldspace);
+
+            float dist = length(camera_center - vertex_worldspace);
+            float s0 =  clamp(sf + (sb - sf)/(zb - zf)*(dist - zf), 0.0, 1.0);
+            vec4 obscured_color = s0 * color + (1.0 - s0) * fog_color;
+            gl_FragColor = obscured_color;
+        }
+    `;
+    // Prepare uniforms
+    const uniforms = {
+        ambient: { value: materialProperties.ambient },
+        diffusivity: { value: materialProperties.diffusivity },
+        specularity: { value: materialProperties.specularity },
+        smoothness: { value: materialProperties.smoothness },
+        shape_color: { value: shape_color },
+        squared_scale: { value: new THREE.Vector3(1.0, 1.0, 1.0) },
+        camera_center: { value: new THREE.Vector3() },
+        model_transform: { value: new THREE.Matrix4() },
+        projection_camera_model_transform: { value: new THREE.Matrix4() },
+        light_positions_or_vectors: { value: [] },
+        light_colors: { value: [] },
+        light_attenuation_factors: { value: [] },
+        fog_color: { value: new THREE.Vector4(0.5, 0.5, 0.5, 1.0) },
+        zf: { value: 5.0 },
+        zb: { value: 35.0 },
+        sf: { value: 1.0 },
+        sb: { value: 0.0 }
+    };
+
+    // Create the ShaderMaterial using the custom vertex and fragment shaders
+    return new THREE.ShaderMaterial({
+        vertexShader: vertexShader,
+        fragmentShader: fragmentShader,
+        uniforms: uniforms
+    });
+}
+
+function updateNoteUniforms(note) {
+    const material = note.material;
+    const uniforms = material.uniforms;
+    const numLights = 2;
+    const lights = scene.children.filter(child => child.isLight).slice(0, numLights);
+    // Ensure we have the correct number of lights
+    if (lights.length < numLights) {
+        console.warn(`Expected ${numLights} lights, but found ${lights.length}. Padding with default lights.`);
+    }
+
+    // Update model_transform and projection_camera_model_transform
+    note.updateMatrixWorld();
+    camera.updateMatrixWorld();
+
+    uniforms.model_transform.value.copy(note.matrixWorld);
+    uniforms.projection_camera_model_transform.value.multiplyMatrices(
+        camera.projectionMatrix,
+        camera.matrixWorldInverse
+    ).multiply(note.matrixWorld);
+
+    // Update camera_center
+    uniforms.camera_center.value.setFromMatrixPosition(camera.matrixWorld);
+
+    // Update squared_scale (in case the scale changes)
+    const scale = note.scale;
+    uniforms.squared_scale.value.set(
+        scale.x * scale.x,
+        scale.y * scale.y,
+        scale.z * scale.z
+    );
+
+    // Update light uniforms
+    uniforms.light_positions_or_vectors.value = [];
+    uniforms.light_colors.value = [];
+    uniforms.light_attenuation_factors.value = [];
+
+    for (let i = 0; i < numLights; i++) {
+        const light = lights[i];
+        if (light) {
+            let position = new THREE.Vector4();
+            if (light.isDirectionalLight) {
+                // For directional lights
+                const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(light.quaternion);
+                position.set(direction.x, direction.y, direction.z, 0.0);
+            } else if (light.position) {
+                // For point lights
+                position.set(light.position.x, light.position.y, light.position.z, 1.0);
+            } else {
+                // Default position
+                position.set(0.0, 0.0, 0.0, 1.0);
+            }
+            uniforms.light_positions_or_vectors.value.push(position);
+
+            // Update light color
+            const color = new THREE.Vector4(light.color.r, light.color.g, light.color.b, 1.0);
+            uniforms.light_colors.value.push(color);
+
+            // Update attenuation factor
+            let attenuation = 0.0;
+            if (light.isPointLight || light.isSpotLight) {
+                const distance = light.distance || 1000.0; // Default large distance
+                attenuation = 1.0 / (distance * distance);
+            } else if (light.isDirectionalLight) {
+                attenuation = 0.0; // No attenuation for directional lights
+            }
+            // Include light intensity
+            const intensity = light.intensity !== undefined ? light.intensity : 1.0;
+            attenuation *= intensity;
+
+            uniforms.light_attenuation_factors.value.push(attenuation);
+        } else {
+            // Default light values
+            uniforms.light_positions_or_vectors.value.push(new THREE.Vector4(0.0, 0.0, 0.0, 0.0));
+            uniforms.light_colors.value.push(new THREE.Vector4(0.0, 0.0, 0.0, 1.0));
+            uniforms.light_attenuation_factors.value.push(0.0);
+        }
+    }
 }
 
 // ---Lighting/Environment---
@@ -123,9 +353,20 @@ for(let key in HIT_ZONES) {
 // ---Notes---
 
 const noteGeometry = new THREE.BoxGeometry(1.5, 1.5, 0.5);
-const noteMaterial = new THREE.MeshStandardMaterial( { color: 0x800080, metalness: 0.5, roughness: 0.5 } );
+
+const obscuredMaterialProperties = {
+    color: 0x800080,
+    ambient: 0.2,
+    diffusivity: 0.7,
+    specularity: 0.5,
+    smoothness: 20.0
+};
+
+
+const noteMaterial = obscuredMaterial(obscuredMaterialProperties);
+
 function createNote(positionX, positionY, positionZ) {
-    const note = new THREE.Mesh(noteGeometry, noteMaterial);
+    const note = new THREE.Mesh(noteGeometry, noteMaterial.clone());
     note.position.set(positionX, positionY, positionZ);
     scene.add(note);
     return note;
@@ -135,7 +376,7 @@ const activeNotes = [];
 function spawnNote() {
     const lanePositions = [-3, -1, 1, 3];
     const lane = Math.floor(Math.random() * 4);
-    const note = createNote(lanePositions[lane], 2, -25);
+    const note = createNote(lanePositions[lane], 2, -40);
     activeNotes.push(note);
 }
 
@@ -266,10 +507,12 @@ function animate() {
 
     let time = clock.getElapsedTime();
 
-    // Move active notes
+    // Move active notes and update their uniforms
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
-        note.position.z += NOTE_SPEED; // Move note towards the player
+        updateNoteUniforms(note);
+        note.position.z += NOTE_SPEED;
+        console.log(note.position.z);
         if(note.position.z > -3) {
             scene.remove(note);
             activeNotes.splice(i, 1);
