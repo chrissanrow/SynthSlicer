@@ -199,10 +199,10 @@ function obscuredMaterial(materialProperties) {
         light_colors: { value: [] },
         light_attenuation_factors: { value: [] },
         fog_color: { value: new THREE.Vector4(0.5, 0.5, 0.5, 1.0) },
-        zf: { value: 5.0 },
-        zb: { value: 35.0 },
-        sf: { value: 1.0 },
-        sb: { value: 0.0 }
+        zf: { value: materialProperties.zf || 5.0 },
+        zb: { value: materialProperties.zb || 35.0 },
+        sf: { value: materialProperties.sf || 1.0 },
+        sb: { value: materialProperties.sb || 0.0 }
     };
 
     // Create the ShaderMaterial using the custom vertex and fragment shaders
@@ -213,8 +213,8 @@ function obscuredMaterial(materialProperties) {
     });
 }
 
-function updateNoteUniforms(note) {
-    const material = note.material;
+function updateObscuredUniforms(obj) {
+    const material = obj.material;
     const uniforms = material.uniforms;
     const numLights = 2;
     const lights = scene.children.filter(child => child.isLight).slice(0, numLights);
@@ -224,20 +224,20 @@ function updateNoteUniforms(note) {
     }
 
     // Update model_transform and projection_camera_model_transform
-    note.updateMatrixWorld();
+    obj.updateMatrixWorld();
     camera.updateMatrixWorld();
 
-    uniforms.model_transform.value.copy(note.matrixWorld);
+    uniforms.model_transform.value.copy(obj.matrixWorld);
     uniforms.projection_camera_model_transform.value.multiplyMatrices(
         camera.projectionMatrix,
         camera.matrixWorldInverse
-    ).multiply(note.matrixWorld);
+    ).multiply(obj.matrixWorld);
 
     // Update camera_center
     uniforms.camera_center.value.setFromMatrixPosition(camera.matrixWorld);
 
     // Update squared_scale (in case the scale changes)
-    const scale = note.scale;
+    const scale = obj.scale;
     uniforms.squared_scale.value.set(
         scale.x * scale.x,
         scale.y * scale.y,
@@ -303,12 +303,22 @@ scene.add( directionalLight );
 scene.add( new THREE.AmbientLight( 0x404040, 1.5 ) );
 
 const trackGeometry = new THREE.PlaneGeometry( 50, 500 );
-const trackMaterial = new THREE.MeshStandardMaterial( { color: 0xffffff, metalness: 0.8, roughness: 0.1 } );
+const trackMaterialProperties = {
+    color: 0x808080,
+    ambient: 1.0,
+    diffusivity: 0.2,
+    specularity: 0.2,
+    smoothness: 10.0,
+    zb: 30.0,
+    zf: 10.0,
+    sf: 1.0,
+    sb: 0.0
+};
+const trackMaterial = obscuredMaterial(trackMaterialProperties);
 const track = new THREE.Mesh( trackGeometry, trackMaterial );
 track.rotation.x = -Math.PI / 2;
 track.position.y = 0;
 track.position.z = -200;
-track.receiveShadow = true; 
 scene.add( track );
 
 // ---Hit Zones---
@@ -354,7 +364,7 @@ for(let key in HIT_ZONES) {
 
 const noteGeometry = new THREE.BoxGeometry(1.5, 1.5, 0.5);
 
-const obscuredMaterialProperties = {
+const noteMaterialProperties = {
     color: 0x800080,
     ambient: 0.2,
     diffusivity: 0.7,
@@ -362,8 +372,7 @@ const obscuredMaterialProperties = {
     smoothness: 20.0
 };
 
-
-const noteMaterial = obscuredMaterial(obscuredMaterialProperties);
+const noteMaterial = obscuredMaterial(noteMaterialProperties);
 
 function createNote(positionX, positionY, positionZ) {
     const note = new THREE.Mesh(noteGeometry, noteMaterial.clone());
@@ -506,10 +515,12 @@ function animate() {
 
     let time = clock.getElapsedTime();
 
+    updateObscuredUniforms(track);
+
     // Move active notes and update their uniforms
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
-        updateNoteUniforms(note);
+        updateObscuredUniforms(note);
         note.position.z += NOTE_SPEED;
         if(note.position.z > -2.5) {
             scene.remove(note);
