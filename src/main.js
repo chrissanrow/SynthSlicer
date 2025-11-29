@@ -1,14 +1,22 @@
 import * as THREE from 'three';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import { generateBeatmap } from './beatmap.js';
 
 // ---Game constants/variables---
 
 const HIT_ZONE_Z = -5;
-const NOTE_SPEED = 0.2;
+const NOTE_DELTA = 0.2;
+const SPAWN_Z = -40;
+
+const FPS = 60; // assumed fps
+
+const NOTE_TRAVEL_DISTANCE = Math.abs(SPAWN_Z) - Math.abs(HIT_ZONE_Z);
+const NOTE_TRAVEL_TIME = NOTE_TRAVEL_DISTANCE / (NOTE_DELTA * FPS);
+console.log('NOTE_TRAVEL_TIME:', NOTE_TRAVEL_TIME);
+
 let gameRunning = false;
-let spawnInterval = 0;
-let lastSpawnTime = 0;
+let beatmapLoaded = false;
 
 let score = 0;
 
@@ -406,7 +414,7 @@ const activeNotes = [];
 function spawnNote() {
     const lanePositions = [-3, -1, 1, 3];
     const lane = Math.floor(Math.random() * 4);
-    const note = createNote(lanePositions[lane], 2, -40);
+    const note = createNote(lanePositions[lane], 2, SPAWN_Z);
     activeNotes.push(note);
 }
 
@@ -495,23 +503,25 @@ function onKeyDown(event) {
         case 'ArrowDown':
         case 'ArrowUp':
         case 'ArrowRight':
+        case 'd':
+        case 'f':
+        case 'j':
+        case 'k':
             checkHit(key);
             break;
+        /*
         case 'Enter':
             gameRunning = true;
-            /*
             startMusic();
-            */
             break;
+        */
         case 'Escape':
             gameRunning = !gameRunning;
-            /*
             if(gameRunning) {
                 startMusic();
             } else {
                 pauseMusic();
             }
-            */
             break;
     }
 }
@@ -520,15 +530,19 @@ function checkHit(key) {
     let zone;
     switch(key) {
         case 'ArrowLeft':
+        case 'd':  
             zone = HIT_ZONES['Left'];
             break;
         case 'ArrowDown':
+        case 'f':
             zone = HIT_ZONES['Down'];
             break;
         case 'ArrowUp':
+        case 'j':
             zone = HIT_ZONES['Up'];
             break;
         case 'ArrowRight':
+        case 'k':
             zone = HIT_ZONES['Right'];
             break;
     }
@@ -552,25 +566,58 @@ function checkHit(key) {
 }
 
 document.addEventListener('keydown', onKeyDown, false);
+// --- MUSIC / BEATMAP LOGIC ---
+
+let audioURL = 'audio/carmelldansen.mp3';
+
+const audio = new Audio(audioURL);
+function startMusic() {
+    audio.play();
+}
+function pauseMusic() {
+    audio.pause();
+}
+
+let beatmap = [];
+let beatIndex = 0;
+async function loadBeatmap() {
+    beatmap = await generateBeatmap(audioURL);
+    beatmapLoaded = true;
+    gameRunning = true;
+    setTimeout(startMusic, beatmap[0].time + NOTE_TRAVEL_TIME * 1000); // Adjust for initial delay
+    console.log('Generated Beatmap:', beatmap);
+}
+
+loadBeatmap();
 
 function animate() {
 
-    if(!gameRunning) return;
-    
+    if(!gameRunning || !beatmapLoaded) return;
+
     let time = clock.getElapsedTime();
 
-    if(time - lastSpawnTime > spawnInterval / 1000) {
-        spawnNote();
-        lastSpawnTime = time;
-        spawnInterval = randSpawnInterval();
+    // Spawn notes based on beatmap timing
+    if(beatIndex < beatmap.length) {
+        while(beatIndex < beatmap.length && time >= beatmap[beatIndex].time) {
+            const lanePositions = [-3, -1, 1, 3];
+            const lane = beatmap[beatIndex].lane;
+            const note = createNote(lanePositions[lane], 2, -40);
+            activeNotes.push(note);
+            beatIndex++;
+        }
     }
+    else{
+        // beatmap complete
+        // TODO: handle game end logic
+    }
+
     updateObscuredUniforms(track);
 
     // Move active notes and update their uniforms
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
         updateObscuredUniforms(note);
-        note.position.z += NOTE_SPEED;
+        note.position.z += NOTE_DELTA;
         if(note.position.z > -2.5) {
             scene.remove(note);
             activeNotes.splice(i, 1);
@@ -593,14 +640,4 @@ function animate() {
     }
 
 	renderer.render( scene, camera );
-}
-
-// --- MUSIC LOGIC ---
-
-const audio = new Audio('audio/song.mp3');
-function startMusic() {
-    audio.play();
-}
-function pauseMusic() {
-    audio.pause();
 }
