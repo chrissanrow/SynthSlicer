@@ -3,14 +3,20 @@ import Meyda from 'meyda';
 const SAMPLE_RATE = 8000; // downsampled rate for analysis
 const FRAME_SIZE = 2048; // size of the analysis window (FFT size)
 
-async function generateBeatmap(audioUrl) {
+async function generateBeatmap(audioSource) {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)({
         sampleRate: SAMPLE_RATE
     });
-    
-    // load / decode audio
-    const response = await fetch(audioUrl);
-    const arrayBuffer = await response.arrayBuffer();
+
+    // load / decode audio (accept either a URL string or a File/Blob)
+    let arrayBuffer;
+    if (audioSource instanceof File || (typeof Blob !== 'undefined' && audioSource instanceof Blob)) {
+        arrayBuffer = await audioSource.arrayBuffer();
+    } else {
+        const response = await fetch(audioSource);
+        arrayBuffer = await response.arrayBuffer();
+    }
+
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
     const monoData = audioBuffer.getChannelData(0);
     const spectralFlux = [];

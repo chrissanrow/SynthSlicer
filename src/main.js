@@ -401,25 +401,15 @@ const noteMaterialProperties = {
 };
 
 const noteMaterial = obscuredMaterial(noteMaterialProperties);
+let activeNotes = [];
 
 function createNote(positionX, positionY, positionZ) {
     const note = new THREE.Mesh(noteGeometry, noteMaterial.clone());
     note.position.set(positionX, positionY, positionZ);
     note.castShadow = true;
     scene.add(note);
-    return note;
-}
-
-const activeNotes = [];
-function spawnNote() {
-    const lanePositions = [-3, -1, 1, 3];
-    const lane = Math.floor(Math.random() * 4);
-    const note = createNote(lanePositions[lane], 2, SPAWN_Z);
     activeNotes.push(note);
-}
-
-function randSpawnInterval() {
-    return Math.random() * 1000 + 200; // between 200ms and 1200ms
+    return note;
 }
 
 // score text
@@ -516,11 +506,19 @@ function onKeyDown(event) {
             break;
         */
         case 'Escape':
-            gameRunning = !gameRunning;
-            if(gameRunning) {
+            console.log(startMenu.style.display, gameOverMenu.style.display, pauseMenu.style.display);
+            // unpause game if paused
+            if (pauseMenu.style.display === "flex") {
+                gameRunning = true; 
+                pauseMenu.style.display = "none";
                 startMusic();
-            } else {
+            } 
+            // pause game if running
+            else if (!audio.paused) {
+                gameRunning = false;
                 pauseMusic();
+                document.getElementById("current-score-span").innerHTML = score;
+                pauseMenu.style.display = "flex";
             }
             break;
     }
@@ -568,11 +566,11 @@ function checkHit(key) {
 document.addEventListener('keydown', onKeyDown, false);
 // --- MUSIC / BEATMAP LOGIC ---
 
-let audioURL = 'audio/carmelldansen.mp3';
+const audio = new Audio();
 
-const audio = new Audio(audioURL);
 function startMusic() {
     audio.play();
+    console.log('Music started');
 }
 function pauseMusic() {
     audio.pause();
@@ -580,15 +578,108 @@ function pauseMusic() {
 
 let beatmap = [];
 let beatIndex = 0;
-async function loadBeatmap() {
-    beatmap = await generateBeatmap(audioURL);
+
+async function loadGame(audio) {
+    // reset game state
+    score = 0;
+    updateScore();
+    beatIndex = 0;
+    clock.elapsedTime = 0;
+    clock.start();
+    activeNotes.forEach(note => scene.remove(note));
+    activeNotes = [];
+    // Ensure materials that expect updated uniforms have them before a manual render
+    try {
+        updateObscuredUniforms(track);
+        renderer.render(scene, camera);
+    } catch (err) {
+        console.warn('Render error during loadGame:', err);
+    }
+
+    beatmap = await generateBeatmap(audio);
     beatmapLoaded = true;
     gameRunning = true;
     setTimeout(startMusic, beatmap[0].time + NOTE_TRAVEL_TIME * 1000); // Adjust for initial delay
     console.log('Generated Beatmap:', beatmap);
 }
 
-loadBeatmap();
+// ---- event listeners for menu controls and buttons ----
+
+const startMenu = document.getElementById("start-menu");
+const pauseMenu = document.getElementById("game-paused-menu");
+const gameOverMenu = document.getElementById("game-over-menu");
+
+document.querySelectorAll(".level-button").forEach(btn => {
+  btn.addEventListener("click", async () => {
+
+    let audioURL = `audio/${btn.dataset.audio}.mp3`;
+    console.log("Audio selected:", audioURL);
+
+    // Play audio first to unlock audio context
+    audio.src = audioURL;
+    await audio.play();
+    audio.pause();
+    audio.currentTime = 0;
+
+    loadGame(audioURL); 
+
+    // Hide overlay
+   startMenu.style.display = "none";
+  });
+});
+
+// Handle user-uploaded custom audio file
+const customAudioInput = document.getElementById('custom-audio-input');
+if (customAudioInput) {
+    customAudioInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        // Create an object URL so the <audio> element can play the file
+        const objectUrl = URL.createObjectURL(file);
+        audio.src = objectUrl;
+
+        // Try to unlock audio playback with a user gesture
+        try {
+            await audio.play();
+            audio.pause();
+            audio.currentTime = 0;
+        } catch (err) {
+            console.warn('Could not auto-play uploaded audio to unlock audio context:', err);
+        }
+
+        // Pass the File object to the beatmap generator
+        loadGame(file);
+
+        // Hide the start menu
+        startMenu.style.display = 'none';
+    });
+}
+
+audio.addEventListener('ended', () => {
+    document.getElementById("final-score-span").innerHTML = score;
+    document.getElementById("game-over-menu").style.display = "flex";
+    gameRunning = false;
+});
+
+document.getElementById("play-again-button").addEventListener("click", () => {    
+    loadGame(audio.src);
+    gameOverMenu.style.display = "none";
+});
+
+document.querySelectorAll(".go-to-start-menu-button").forEach(button => {
+    button.addEventListener("click", () => {
+        gameOverMenu.style.display = "none";
+        pauseMenu.style.display = "none";
+        startMenu.style.display = "flex";
+    });
+});
+
+document.getElementById("return-to-game-button").addEventListener("click", () => {    
+    gameRunning = true;
+    pauseMenu.style.display = "none";
+    startMusic();
+});
 
 function animate() {
 
@@ -597,18 +688,13 @@ function animate() {
     let time = clock.getElapsedTime();
 
     // Spawn notes based on beatmap timing
-    if(beatIndex < beatmap.length) {
+    if (beatIndex < beatmap.length) {
         while(beatIndex < beatmap.length && time >= beatmap[beatIndex].time) {
             const lanePositions = [-3, -1, 1, 3];
             const lane = beatmap[beatIndex].lane;
             const note = createNote(lanePositions[lane], 2, -40);
-            activeNotes.push(note);
             beatIndex++;
         }
-    }
-    else{
-        // beatmap complete
-        // TODO: handle game end logic
     }
 
     updateObscuredUniforms(track);
@@ -639,5 +725,6 @@ function animate() {
         }
     }
 
-	renderer.render( scene, camera );
+    renderer.render( scene, camera );
+
 }

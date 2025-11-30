@@ -3,16 +3,76 @@
 	<head>
 		<meta charset="utf-8">
 		<title>Synth Slicer</title>
-		<style>
-			body { margin: 0; }
-
-			@font-face {
-				font-family: 'Trench';
-				src: url('/fonts/trench100free.otf') format('opentype');
-			}
-		</style>
+		<link rel="icon" type="image/png" href="note.png">
+		<link rel="stylesheet" href="/src/styles.css">
 	</head>
 	<body>
 		<script type="module" src="/src/main.js"></script>
+
+		<div id="start-menu" class="menu">
+			<h1>Synth Slicer</h1>
+			<p>Use arrow keys to slice notes</p>
+			<p>Press 'Esc' to pause the game</p>
+			<div id="levels-div">
+				<button 
+					class="level-button" 
+					data-audio="carmelldansen" 
+					data-difficulty="hard">
+					carmelldansen
+				</button>
+				<button 
+					class="level-button" 
+					data-audio="chosenjin" 
+					data-difficulty="hard">
+					chosenjin
+				</button>
+				<button 
+					class="level-button" 
+					data-audio="nobonoko - Shortcake" 
+					data-difficulty="easy">
+					Shortcake
+				</button>
+				<button 
+					class="level-button" 
+					data-audio="fluidvolt - frog roulette (mp3cut.net)" 
+					data-difficulty="easy">
+					fluidvolt (short - for testing)
+				</button>
+			</div>
+			<p>Upload an mp3 file:</p>
+			<input
+				type="file" 
+				id="custom-audio-input" 
+				accept=".mp3">
+			</input>
+		</div>
+
+		<div id="game-paused-menu" class="menu">
+			<h1>Game Paused</h1>
+			<p>Score: <span id="current-score-span">INSERT SCORE</span></p>
+			<button 
+				id="return-to-game-button">
+				Return to Game
+			</button>
+			<button 
+				class="go-to-start-menu-button">
+				Quit
+			</button>
+		</div>
+
+		<div id="game-over-menu" class="menu">
+			<h1>Game Over</h1>
+			<p>Score: <span id="final-score-span">INSERT SCORE</span></p>
+			<p>Rank: </p>
+			<button 
+				id="play-again-button">
+				Play Again
+			</button>
+			<button 
+				class="go-to-start-menu-button">
+				Go to Start Menu
+			</button>
+		</div>
+
 	</body>
 </html>
