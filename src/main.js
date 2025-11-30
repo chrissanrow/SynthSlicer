@@ -1,11 +1,22 @@
 import * as THREE from 'three';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import { generateBeatmap } from './beatmap.js';
 
 // ---Game constants/variables---
 
 const HIT_ZONE_Z = -5;
-const NOTE_SPEED = 0.2;
+const NOTE_DELTA = 0.2;
+const SPAWN_Z = -40;
+
+const FPS = 60; // assumed fps
+
+const NOTE_TRAVEL_DISTANCE = Math.abs(SPAWN_Z) - Math.abs(HIT_ZONE_Z);
+const NOTE_TRAVEL_TIME = NOTE_TRAVEL_DISTANCE / (NOTE_DELTA * FPS);
+console.log('NOTE_TRAVEL_TIME:', NOTE_TRAVEL_TIME);
+
+let gameRunning = false;
+let beatmapLoaded = false;
 
 let score = 0;
 
@@ -390,24 +401,16 @@ const noteMaterialProperties = {
 };
 
 const noteMaterial = obscuredMaterial(noteMaterialProperties);
+let activeNotes = [];
 
 function createNote(positionX, positionY, positionZ) {
     const note = new THREE.Mesh(noteGeometry, noteMaterial.clone());
     note.position.set(positionX, positionY, positionZ);
     note.castShadow = true;
     scene.add(note);
+    activeNotes.push(note);
     return note;
 }
-
-const activeNotes = [];
-function spawnNote() {
-    const lanePositions = [-3, -1, 1, 3];
-    const lane = Math.floor(Math.random() * 4);
-    const note = createNote(lanePositions[lane], 2, -40);
-    activeNotes.push(note);
-}
-
-setInterval(spawnNote, 1000);
 
 // score text
 // const loader = new FontLoader();
@@ -490,7 +493,33 @@ function onKeyDown(event) {
         case 'ArrowDown':
         case 'ArrowUp':
         case 'ArrowRight':
+        case 'd':
+        case 'f':
+        case 'j':
+        case 'k':
             checkHit(key);
+            break;
+        /*
+        case 'Enter':
+            gameRunning = true;
+            startMusic();
+            break;
+        */
+        case 'Escape':
+            console.log(startMenu.style.display, gameOverMenu.style.display, pauseMenu.style.display);
+            // unpause game if paused
+            if (pauseMenu.style.display === "flex") {
+                gameRunning = true; 
+                pauseMenu.style.display = "none";
+                startMusic();
+            } 
+            // pause game if running
+            else if (!audio.paused) {
+                gameRunning = false;
+                pauseMusic();
+                document.getElementById("current-score-span").innerHTML = score;
+                pauseMenu.style.display = "flex";
+            }
             break;
     }
 }
@@ -499,15 +528,19 @@ function checkHit(key) {
     let zone;
     switch(key) {
         case 'ArrowLeft':
+        case 'd':  
             zone = HIT_ZONES['Left'];
             break;
         case 'ArrowDown':
+        case 'f':
             zone = HIT_ZONES['Down'];
             break;
         case 'ArrowUp':
+        case 'j':
             zone = HIT_ZONES['Up'];
             break;
         case 'ArrowRight':
+        case 'k':
             zone = HIT_ZONES['Right'];
             break;
     }
@@ -530,12 +563,139 @@ function checkHit(key) {
     }
 }
 
-
 document.addEventListener('keydown', onKeyDown, false);
+// --- MUSIC / BEATMAP LOGIC ---
+
+const audio = new Audio();
+
+function startMusic() {
+    audio.play();
+    console.log('Music started');
+}
+function pauseMusic() {
+    audio.pause();
+}
+
+let beatmap = [];
+let beatIndex = 0;
+
+async function loadGame(audio) {
+    // reset game state
+    score = 0;
+    updateScore();
+    beatIndex = 0;
+    clock.elapsedTime = 0;
+    clock.start();
+    activeNotes.forEach(note => scene.remove(note));
+    activeNotes = [];
+    // Ensure materials that expect updated uniforms have them before a manual render
+    try {
+        updateObscuredUniforms(track);
+        renderer.render(scene, camera);
+    } catch (err) {
+        console.warn('Render error during loadGame:', err);
+    }
+
+    beatmap = await generateBeatmap(audio);
+    beatmapLoaded = true;
+    gameRunning = true;
+    setTimeout(startMusic, beatmap[0].time + NOTE_TRAVEL_TIME * 1000); // Adjust for initial delay
+    console.log('Generated Beatmap:', beatmap);
+}
+
+// ---- event listeners for menu controls and buttons ----
+
+const startMenu = document.getElementById("start-menu");
+const pauseMenu = document.getElementById("game-paused-menu");
+const gameOverMenu = document.getElementById("game-over-menu");
+
+document.querySelectorAll(".level-button").forEach(btn => {
+  btn.addEventListener("click", async () => {
+
+    let audioURL = `audio/${btn.dataset.audio}.mp3`;
+    console.log("Audio selected:", audioURL);
+
+    // Play audio first to unlock audio context
+    audio.src = audioURL;
+    await audio.play();
+    audio.pause();
+    audio.currentTime = 0;
+
+    loadGame(audioURL); 
+
+    // Hide overlay
+   startMenu.style.display = "none";
+  });
+});
+
+// Handle user-uploaded custom audio file
+const customAudioInput = document.getElementById('custom-audio-input');
+if (customAudioInput) {
+    customAudioInput.addEventListener('change', async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        // Create an object URL so the <audio> element can play the file
+        const objectUrl = URL.createObjectURL(file);
+        audio.src = objectUrl;
+
+        // Try to unlock audio playback with a user gesture
+        try {
+            await audio.play();
+            audio.pause();
+            audio.currentTime = 0;
+        } catch (err) {
+            console.warn('Could not auto-play uploaded audio to unlock audio context:', err);
+        }
+
+        // Pass the File object to the beatmap generator
+        loadGame(file);
+
+        // Hide the start menu
+        startMenu.style.display = 'none';
+    });
+}
+
+audio.addEventListener('ended', () => {
+    document.getElementById("final-score-span").innerHTML = score;
+    document.getElementById("game-over-menu").style.display = "flex";
+    gameRunning = false;
+});
+
+document.getElementById("play-again-button").addEventListener("click", () => {    
+    loadGame(audio.src);
+    gameOverMenu.style.display = "none";
+});
+
+document.querySelectorAll(".go-to-start-menu-button").forEach(button => {
+    button.addEventListener("click", () => {
+        gameOverMenu.style.display = "none";
+        pauseMenu.style.display = "none";
+        startMenu.style.display = "flex";
+    });
+});
+
+document.getElementById("return-to-game-button").addEventListener("click", () => {    
+    gameRunning = true;
+    pauseMenu.style.display = "none";
+    startMusic();
+});
 
 function animate() {
 
+    if(!gameRunning || !beatmapLoaded) return;
+
     let time = clock.getElapsedTime();
+
+    // Spawn notes based on beatmap timing
+    if (beatIndex < beatmap.length) {
+        while(beatIndex < beatmap.length && time >= beatmap[beatIndex].time) {
+            const lanePositions = [-3, -1, 1, 3];
+            const lane = beatmap[beatIndex].lane;
+            const note = createNote(lanePositions[lane], 2, -40);
+            beatIndex++;
+        }
+    }
 
     updateObscuredUniforms(track);
 
@@ -543,7 +703,7 @@ function animate() {
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
         updateObscuredUniforms(note);
-        note.position.z += NOTE_SPEED;
+        note.position.z += NOTE_DELTA;
         if(note.position.z > -2.5) {
             scene.remove(note);
             activeNotes.splice(i, 1);
@@ -565,6 +725,6 @@ function animate() {
         }
     }
 
-	renderer.render( scene, camera );
-}
+    renderer.render( scene, camera );
 
+}
