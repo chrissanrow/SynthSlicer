@@ -349,6 +349,30 @@ track.position.y = 0;
 track.position.z = -200;
 scene.add( track );
 
+// --- SHADOWS SETUP (Planar Projection) --- Mashab
+const shadowMaterial = new THREE.MeshBasicMaterial({
+    color: 0x000000,
+    transparent: true,
+    opacity: 0.6
+});
+
+const shadowMatrix = new THREE.Matrix4();
+
+const Lx = 0;
+const Ly = 10;
+const Lz = 5;
+const floorHeight = 0.01;
+
+//M = [1, -Lx/Ly, 0, 0,  0, 0, 0, floor,  0, -Lz/Ly, 1, 0,  0, 0, 0, 1]
+shadowMatrix.set(
+    1, -Lx / Ly, 0, 0,
+    0,  0,       0, floorHeight,
+    0, -Lz / Ly, 1, 0,
+    0,  0,       0, 1
+);
+
+//----Mashaend
+
 // ---Hit Zones---
 
 // Triangle geometry for zone direction indicators
@@ -394,7 +418,7 @@ const noteGeometry = new THREE.BoxGeometry(1.5, 1.5, 0.5);
 
 const noteMaterialProperties = {
     color: 0x800080,
-    ambient: 0.2,
+    ambient: 0.8,
     diffusivity: 0.7,
     specularity: 0.5,
     smoothness: 20.0
@@ -409,8 +433,25 @@ function createNote(positionX, positionY, positionZ) {
     note.castShadow = true;
     scene.add(note);
     activeNotes.push(note);
+
+    const shadow = new THREE.Mesh(noteGeometry, shadowMaterial);
+    shadow.matrixAutoUpdate = false; 
+    scene.add(shadow);
+    
+    note.userData.shadow = shadow;
+
     return note;
 }
+
+//Mashab
+function spawnNote() {
+    const lanePositions = [-3, -1, 1, 3];
+    const lane = Math.floor(Math.random() * 4);
+    
+    // Теперь createNote сама создаст тень внутри
+    createNote(lanePositions[lane], 2, -40);
+}
+//Mashaend
 
 // score text
 // const loader = new FontLoader();
@@ -476,6 +517,49 @@ const scoreSprite = new THREE.Sprite(material);
 scoreSprite.scale.set(4, 2, 1);
 scoreSprite.position.set(0, 4.5, -4);
 scene.add(scoreSprite);
+
+//Mashab
+// --- FEEDBACK TEXT SETUP (Perfect/Good/Miss) ---
+const feedbackCanvas = document.createElement('canvas');
+feedbackCanvas.width = 512; 
+feedbackCanvas.height = 128;
+const fbCtx = feedbackCanvas.getContext('2d');
+
+const fbTexture = new THREE.CanvasTexture(feedbackCanvas);
+const fbMaterial = new THREE.SpriteMaterial({ map: fbTexture, transparent: true, opacity: 0 }); 
+const feedbackSprite = new THREE.Sprite(fbMaterial);
+feedbackSprite.scale.set(6, 1.5, 1);
+feedbackSprite.position.set(0, 3.0, -4); 
+scene.add(feedbackSprite);
+
+let feedbackTimer = null; 
+
+function showFeedback(text, colorHex) {
+    fbCtx.clearRect(0, 0, feedbackCanvas.width, feedbackCanvas.height);
+    fbCtx.font = 'bold 60px Trench, sans-serif'; 
+    fbCtx.textAlign = 'center';
+    fbCtx.textBaseline = 'middle';
+    
+    fbCtx.shadowColor = 'rgba(0,0,0,0.8)';
+    fbCtx.shadowBlur = 4;
+    fbCtx.shadowOffsetX = 3;
+    fbCtx.shadowOffsetY = 3;
+
+    fbCtx.fillStyle = colorHex;
+    fbCtx.fillText(text, feedbackCanvas.width / 2, feedbackCanvas.height / 2);
+    
+    fbTexture.needsUpdate = true;
+
+    feedbackSprite.material.opacity = 1;
+    
+    // Сбрасываем старый таймер и ставим новый, чтобы текст исчез через 1 сек
+    if (feedbackTimer) clearTimeout(feedbackTimer);
+    feedbackTimer = setTimeout(() => {
+        feedbackSprite.material.opacity = 0;
+    }, 1000);
+}
+
+//Mashaend
 
 // dynamically update text
 function updateScore() {
@@ -543,25 +627,75 @@ function checkHit(key) {
         case 'k':
             zone = HIT_ZONES['Right'];
             break;
+        case 'ArrowLeft':  zone = HIT_ZONES['Left'];  break;
+        case 'ArrowDown':  zone = HIT_ZONES['Down'];  break;
+        case 'ArrowUp':    zone = HIT_ZONES['Up'];    break;
+        case 'ArrowRight': zone = HIT_ZONES['Right']; break;
     }
-    // Determine if a note is in the hit zone
+
+    let hitFound = false; 
+
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
         const noteBox = new THREE.Box3().setFromObject(note);
+        
         if(zone.box.intersectsBox(noteBox)) {
-            // TODO: Create note hit effect
+            hitFound = true;
+            
+            // --- РАСЧЕТ ТОЧНОСТИ ---
+            // Считаем разницу между позицией ноты и идеальным центром (-5)
+            const diff = Math.abs(note.position.z - HIT_ZONE_Z);
+            
+            let hitColor = 0x800080; // Default Purple
+            let hitText = "";
+            let textColor = "";
+            let points = 0;
+
+            if (diff < 0.4) { 
+                hitColor = 0xFF00FF;
+                hitText = "PERFECT!";
+                textColor = "#ff00b7ff";
+                points = 50;
+            } else if (diff < 0.9) {
+                hitColor = 0x00FF00; 
+                hitText = "GOOD";
+                textColor = "#00FF00";
+                points = 20;
+            } else {
+                hitColor = 0x800080;
+                hitText = "OKAY";
+                textColor = "#8400ffff";
+                points = 10;
+            }
+            showFeedback(hitText, textColor);
+
             const hitSphere = new THREE.Mesh(hitSphereGeometry, hitSPhereMaterial.clone());
+            hitSphere.material.color.setHex(hitColor);
             hitSphere.position.copy(note.position);
             scene.add(hitSphere);
             hitSpheres.push(hitSphere);
+
+            if (note.userData.shadow) {
+                scene.remove(note.userData.shadow);
+                note.userData.shadow = null;
+            }
+
             scene.remove(note);
             activeNotes.splice(i, 1);
-            score += 1;
+            score += points;
             updateScore();
-            return;
+            
+            return; 
         }
     }
+
+    if (!hitFound) {
+        showFeedback("MISS", "#FF0000"); 
+    }
 }
+
+//Mashaend
+
 
 document.addEventListener('keydown', onKeyDown, false);
 // --- MUSIC / BEATMAP LOGIC ---
@@ -586,7 +720,7 @@ async function loadGame(audio) {
     beatIndex = 0;
     clock.elapsedTime = 0;
     clock.start();
-    activeNotes.forEach(note => scene.remove(note));
+    activeNotes.forEach(note => { scene.remove(note); scene.remove(note.userData.shadow); });
     activeNotes = [];
     // Ensure materials that expect updated uniforms have them before a manual render
     try {
@@ -699,16 +833,35 @@ function animate() {
 
     updateObscuredUniforms(track);
 
-    // Move active notes and update their uniforms
+    // Move active notes and update their uniforms, shadows Mashab
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
-        updateObscuredUniforms(note);
         note.position.z += NOTE_DELTA;
+
+        updateObscuredUniforms(note);
+        
+        // 3. ОБНОВЛЯЕМ ТЕНЬ
+        const shadow = note.userData.shadow;
+        if (shadow) {
+            // Сначала берем позицию и поворот самой ноты
+            note.updateMatrix();
+            // Умножаем матрицу проекции на мировую матрицу ноты
+            // shadowMatrix * noteMatrix
+            shadow.matrix.copy(shadowMatrix).multiply(note.matrix);
+        }
+
+        // 4. Удаление, если улетела за экран
         if(note.position.z > -2.5) {
+            // Удаляем и ноту, и тень
+            if (note.userData.shadow) {
+                scene.remove(note.userData.shadow);
+                note.userData.shadow = null;
+            }
             scene.remove(note);
             activeNotes.splice(i, 1);
         }
     }
+    //Mashaend
 
     for(let j = hitSpheres.length - 1; j >= 0; j--)
     {
