@@ -453,8 +453,6 @@ function spawnNote() {
 }
 //Mashaend
 
-setInterval(spawnNote, 1000);
-
 // score text
 // const loader = new FontLoader();
 // loader.load(
