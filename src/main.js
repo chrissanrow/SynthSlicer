@@ -562,7 +562,8 @@ function updateScore() {
 
 function onKeyDown(event) {
     const key = event.key;
-    switch(key) {
+    switch(key) 
+    {
         case 'ArrowLeft':
         case 'ArrowDown':
         case 'ArrowUp':
@@ -580,15 +581,15 @@ function onKeyDown(event) {
             break;
         */
         case 'Escape':
-            // Toggle pause/unpause using the authoritative `isPaused` flag
-            if (isPaused) {
+            // unpause game if paused
+            if (pauseMenu.style.display === "flex")
                 unpauseGame();
-            } else {
+            // pause game if running
+            else if (!audio.paused)
                 pauseGame();
-            }
-            break;
     }
 }
+
 
 function checkHit(key) {
     let zone;
@@ -684,8 +685,7 @@ const audio = new Audio();
 
 function startMusic() {
     audio.play();
-    console.log('Music started');
-    // console.log(gameTime);
+    // console.log('Music started');
 }
 function pauseMusic() {
     audio.pause();
@@ -701,13 +701,7 @@ async function loadGame(audio) {
     beatIndex = 0;
     isPaused = false;
     time = 0;
-    // gameTime = 0;
-    // pauseStart = 0; 
-    // pausedTimeOffset = 0;
     clock.getDelta();
-    // clock.elapsedTime = 0;
-    // clock.start(); 
-    console.log('clock started');
     activeNotes.forEach(note => { scene.remove(note); scene.remove(note.userData.shadow); });
     activeNotes = [];
     // Ensure materials that expect updated uniforms have them before a manual render
@@ -720,8 +714,7 @@ async function loadGame(audio) {
 
     beatmap = await generateBeatmap(audio);
     beatmapLoaded = true;
-    // gameRunning = true;
-    setTimeout(startMusic, beatmap[0].time + NOTE_TRAVEL_TIME * 1000); // Adjust for initial delay
+    setTimeout((startMusic), beatmap[0].time + NOTE_TRAVEL_TIME * 1000); // Adjust for initial delay
     console.log('Generated Beatmap:', beatmap);
 }
 
@@ -780,7 +773,6 @@ if (customAudioInput) {
 audio.addEventListener('ended', () => {
     document.getElementById("final-score-span").innerHTML = score;
     document.getElementById("game-over-menu").style.display = "flex";
-    // gameRunning = false;
 });
 
 document.getElementById("play-again-button").addEventListener("click", () => {    
@@ -810,17 +802,11 @@ document.addEventListener('visibilitychange', () => {
 
 let isPaused = false;
 let time = 0;
-// let gameTime = 0;
-// let pauseStart = 0; // clock time when pause started
-// let pausedTimeOffset = 0; // accumulated pause duration in seconds
 
 function pauseGame() {
     console.log('paused time: ', time);
-    // pauseStart = clock.elapsedTime;
-    // console.log('pauseStart set to: ', pauseStart);
     isPaused = true;
     clock.getDelta(); // to avoid large delta on unpause
-    // gameRunning = false;
     pauseMusic();
     document.getElementById("current-score-span").innerHTML = score;
     pauseMenu.style.display = "flex";
@@ -828,10 +814,8 @@ function pauseGame() {
 
 function unpauseGame() {
     console.log('unpaused time: ', time);
-    // pausedTimeOffset += (clock.elapsedTime - pauseStart);
     isPaused = false;
     clock.getDelta(); // to avoid large delta on unpause
-    // gameRunning = true; 
     pauseMenu.style.display = "none";
     startMusic();
 }
@@ -842,7 +826,6 @@ function animate() {
 
     const delta = isPaused ? 0 : clock.getDelta(); 
     if (!isPaused) time += delta;
-    // gameTime = clock.elapsedTime - pausedTimeOffset;
 
     // Spawn notes based on beatmap timing
     if (beatIndex < beatmap.length) {
