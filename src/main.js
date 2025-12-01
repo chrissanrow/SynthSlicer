@@ -433,6 +433,13 @@ function createNote(positionX, positionY, positionZ) {
     note.castShadow = true;
     scene.add(note);
     activeNotes.push(note);
+
+    const shadow = new THREE.Mesh(noteGeometry, shadowMaterial);
+    shadow.matrixAutoUpdate = false; 
+    scene.add(shadow);
+    
+    note.userData.shadow = shadow;
+
     return note;
 }
 
@@ -441,13 +448,8 @@ function spawnNote() {
     const lanePositions = [-3, -1, 1, 3];
     const lane = Math.floor(Math.random() * 4);
     
-    const note = createNote(lanePositions[lane], 2, -40);
-    
-    const shadow = new THREE.Mesh(noteGeometry, shadowMaterial);
-    shadow.matrixAutoUpdate = false;
-    scene.add(shadow);
-    
-    note.userData.shadow = shadow;
+    // Теперь createNote сама создаст тень внутри
+    createNote(lanePositions[lane], 2, -40);
 }
 //Mashaend
 
