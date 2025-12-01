@@ -22,10 +22,14 @@ let score = 0;
 
 const clock = new THREE.Clock();
 
+// Lane positions and colors (left -> right)
+const LANE_POSITIONS = [-3, -1, 1, 3];
+const LANE_COLORS = [0x00FFFF, 0xfe019a, 0x000000, 0x703be7];
+
 // ---Three.js Setup---
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color( 0.5, 0.5, 0.5 ); // Sky blue background
+scene.background = new THREE.Color( 0x191a1f ); 
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
 const renderer = new THREE.WebGLRenderer();
@@ -225,7 +229,7 @@ function obscuredMaterial(materialProperties) {
         light_positions_or_vectors: { value: [] },
         light_colors: { value: [] },
         light_attenuation_factors: { value: [] },
-        fog_color: { value: new THREE.Vector4(0.5, 0.5, 0.5, 1.0) },
+        fog_color: { value: new THREE.Vector4(0.2, 0.8, 0.8, 1.0) },
         zf: { value: materialProperties.zf || 5.0 },
         zb: { value: materialProperties.zb || 35.0 },
         sf: { value: materialProperties.sf || 1.0 },
@@ -331,7 +335,7 @@ scene.add( new THREE.AmbientLight( 0x404040, 1.5 ) );
 
 const trackGeometry = new THREE.PlaneGeometry( 50, 500 );
 const trackMaterialProperties = {
-    color: 0x808080,
+    color: 0x631C99,
     ambient: 1.0,
     diffusivity: 0.2,
     specularity: 0.2,
@@ -351,7 +355,7 @@ scene.add( track );
 
 // --- SHADOWS SETUP (Planar Projection) --- Mashab
 const shadowMaterial = new THREE.MeshBasicMaterial({
-    color: 0x000000,
+    color: 0x220a57,
     transparent: true,
     opacity: 0.6
 });
@@ -383,7 +387,7 @@ const vertices = new Float32Array( [
     0.5, -0.5, 0.0
 ] );
 triangleGeometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-const triangleMaterial = new THREE.MeshBasicMaterial( { side: THREE.DoubleSide } );
+// const triangleMaterial = new THREE.MeshBasicMaterial( { side: THREE.DoubleSide } );
 
 const HIT_ZONES = {
     'Left': { box: new THREE.Box3(new THREE.Vector3(-4, 0, HIT_ZONE_Z - 1), new THREE.Vector3(-2, 2, HIT_ZONE_Z + 1)), triangleRotation: Math.PI / 2 },
@@ -397,18 +401,22 @@ for(let key in HIT_ZONES) {
     const center = zone.box.getCenter(new THREE.Vector3());
     const size = zone.box.getSize(new THREE.Vector3());
     const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
-    const material = new THREE.MeshBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.25, wireframe: true } );
+    // Map hit zone keys to lane indices (Left, Down, Up, Right)
+    const zoneToLaneIndex = { 'Left': 0, 'Down': 1, 'Up': 2, 'Right': 3 };
+    const laneIndex = zoneToLaneIndex[key] !== undefined ? zoneToLaneIndex[key] : 0;
+    const laneColor = LANE_COLORS[laneIndex] || 0xffffff;
+    const material = new THREE.MeshBasicMaterial( { color: laneColor, transparent: true, opacity: 0.25, wireframe: true } );
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.copy(center);
     mesh.translateY(1);
     scene.add(mesh);
 
-    // Add directional indicator
+    const triangleMaterial = new THREE.MeshBasicMaterial({ color: laneColor, side: THREE.DoubleSide });
     const triangle = new THREE.Mesh(triangleGeometry, triangleMaterial);
     triangle.position.set(center.x, center.y + 3, center.z);
     triangle.rotation.z = zone.triangleRotation;
-
+    triangle.scale.set(0.8, 0.8, 0.8);
     scene.add(triangle);
 }
 
@@ -417,19 +425,27 @@ for(let key in HIT_ZONES) {
 const noteGeometry = new THREE.BoxGeometry(1.5, 1.5, 0.5);
 
 const noteMaterialProperties = {
-    color: 0x800080,
+    color: 0xffffff,
     ambient: 0.8,
     diffusivity: 0.7,
     specularity: 0.5,
     smoothness: 20.0
 };
 
-const noteMaterial = obscuredMaterial(noteMaterialProperties);
+// const noteMaterial = obscuredMaterial(noteMaterialProperties);
 let activeNotes = [];
 
-function createNote(positionX, positionY, positionZ) {
-    const note = new THREE.Mesh(noteGeometry, noteMaterial.clone());
-    note.position.set(positionX, positionY, positionZ);
+function createNote(laneIndex) {
+
+    const positionY = 2;
+    const positionZ = -40;
+
+    const laneColor = LANE_COLORS[laneIndex] || noteMaterialProperties.color;
+    const props = Object.assign({}, noteMaterialProperties, { color: laneColor });
+    const material = obscuredMaterial(props);
+
+    const note = new THREE.Mesh(noteGeometry, material);
+    note.position.set(LANE_POSITIONS[laneIndex], positionY, positionZ);
     note.castShadow = true;
     scene.add(note);
     activeNotes.push(note);
@@ -844,9 +860,10 @@ function animate() {
     // Spawn notes based on beatmap timing
     if (beatIndex < beatmap.length) {
         while(beatIndex < beatmap.length && time >= beatmap[beatIndex].time) {
-            const lanePositions = [-3, -1, 1, 3];
+            // const lanePositions = [-3, -1, 1, 3];
             const lane = beatmap[beatIndex].lane;
-            createNote(lanePositions[lane], 2, -40);
+            // createNote(LANE_POSITIONS[lane], 2, -40);
+            createNote(lane);
             beatIndex++;
         }
     }
