@@ -15,7 +15,7 @@ const NOTE_TRAVEL_DISTANCE = Math.abs(SPAWN_Z) - Math.abs(HIT_ZONE_Z);
 const NOTE_TRAVEL_TIME = NOTE_TRAVEL_DISTANCE / (NOTE_DELTA * FPS);
 console.log('NOTE_TRAVEL_TIME:', NOTE_TRAVEL_TIME);
 
-// let gameRunning = false;
+let gameRunning = false;
 let beatmapLoaded = false;
 
 let score = 0;
@@ -740,8 +740,10 @@ async function loadGame(audio) {
 
     beatmap = await generateBeatmap(audio);
     beatmapLoaded = true;
-    setTimeout((startMusic), beatmap[0].time + NOTE_TRAVEL_TIME * 1000); // Adjust for initial delay
+    gameRunning = true;
+    setTimeout(startMusic, (NOTE_TRAVEL_TIME - beatmap[0].time) * 1000); // Adjust for initial delay
     console.log('Generated Beatmap:', beatmap);
+    console.log('Starting offset', (NOTE_TRAVEL_TIME - beatmap[0].time) * 1000);
 }
 
 // ---- event listeners for menu controls and buttons ----
