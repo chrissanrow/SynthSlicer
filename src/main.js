@@ -49,7 +49,7 @@ hitShere.position.set(0, 2, -5);
 scene.add(hitShere); */
 
 
-camera.position.set(0, 2, 0);
+camera.position.set(0, 4, 0);
 camera.lookAt(0, 2, -10);
 
 // Transformation Matrices
@@ -493,7 +493,7 @@ ctx.shadowOffsetY = 2;
 ctx.shadowBlur = 4;
 const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
 gradient.addColorStop(0, 'blue');
-gradient.addColorStop(1, 'green');
+gradient.addColorStop(1, '#fe0151ff');
 ctx.fillStyle = gradient;
 
 // initial text
@@ -505,8 +505,15 @@ const texture = new THREE.CanvasTexture(canvas);
 const material = new THREE.SpriteMaterial({ map: texture });
 const scoreSprite = new THREE.Sprite(material);
 scoreSprite.scale.set(4, 2, 1);
-scoreSprite.position.set(0, 4.5, -4);
+scoreSprite.position.set(0, 5, -4);
 scene.add(scoreSprite);
+
+// dynamically update text
+function updateScore() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillText('Score: ' + score, canvas.width/2, canvas.height/2);
+    texture.needsUpdate = true; 
+}
 
 //Mashab
 // --- FEEDBACK TEXT SETUP (Perfect/Good/Miss) ---
@@ -519,14 +526,18 @@ const fbTexture = new THREE.CanvasTexture(feedbackCanvas);
 const fbMaterial = new THREE.SpriteMaterial({ map: fbTexture, transparent: true, opacity: 0 }); 
 const feedbackSprite = new THREE.Sprite(fbMaterial);
 feedbackSprite.scale.set(6, 1.5, 1);
-feedbackSprite.position.set(0, 3.0, -4); 
+feedbackSprite.position.set(0, 4, -4); 
 scene.add(feedbackSprite);
 
 let feedbackTimer = null; 
 
-function showFeedback(text, colorHex) {
+function showFeedback(text, colorHex, position) {
+    // Optionally move the feedback sprite to a world-space `position` (THREE.Vector3)
+    if (position && position.isVector3) {
+        feedbackSprite.position.copy(position);
+    }
     fbCtx.clearRect(0, 0, feedbackCanvas.width, feedbackCanvas.height);
-    fbCtx.font = 'bold 60px Trench, sans-serif'; 
+    fbCtx.font = 'bold 36px Trench, sans-serif'; 
     fbCtx.textAlign = 'center';
     fbCtx.textBaseline = 'middle';
     
@@ -550,13 +561,6 @@ function showFeedback(text, colorHex) {
 }
 
 //Mashaend
-
-// dynamically update text
-function updateScore() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillText('Score: ' + score, canvas.width/2, canvas.height/2);
-    texture.needsUpdate = true; 
-}
 
 // ---Controls---
 
@@ -617,6 +621,10 @@ function checkHit(key) {
     }
 
     let hitFound = false; 
+    let hitColor = 0x800080; // Default Purple
+    let hitText = "";
+    let textColor = "";
+    let points = 0;
 
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
@@ -628,11 +636,6 @@ function checkHit(key) {
             // --- РАСЧЕТ ТОЧНОСТИ ---
             // Считаем разницу между позицией ноты и идеальным центром (-5)
             const diff = Math.abs(note.position.z - HIT_ZONE_Z);
-            
-            let hitColor = 0x800080; // Default Purple
-            let hitText = "";
-            let textColor = "";
-            let points = 0;
 
             if (diff < 0.4) { 
                 hitColor = 0xFF00FF;
@@ -650,7 +653,6 @@ function checkHit(key) {
                 textColor = "#8400ffff";
                 points = 10;
             }
-            showFeedback(hitText, textColor);
 
             const hitSphere = new THREE.Mesh(hitSphereGeometry, hitSPhereMaterial.clone());
             hitSphere.material.color.setHex(hitColor);
@@ -668,13 +670,19 @@ function checkHit(key) {
             score += points;
             updateScore();
             
-            return; 
+            break; 
         }
     }
 
     if (!hitFound) {
-        showFeedback("MISS", "#FF0000"); 
+        hitText = "MISS";
+        textColor = "#FF0000";
     }
+
+    // position feedback above the hit zone
+    const zoneCenter = zone.box.getCenter(new THREE.Vector3());
+    const feedbackPos = new THREE.Vector3(zoneCenter.x, zoneCenter.y + 2.0, zoneCenter.z);
+    showFeedback(hitText, textColor, feedbackPos);
 }
 
 document.addEventListener('keydown', onKeyDown, false);
@@ -771,7 +779,13 @@ if (customAudioInput) {
 }
 
 audio.addEventListener('ended', () => {
-    document.getElementById("final-score-span").innerHTML = score;
+    let perfectScore = beatmap.length * 50;
+    document.getElementById("final-score-span").innerHTML = score + ' / ' + perfectScore;
+    document.getElementById("final-rank-span").innerHTML = 
+        score >= perfectScore * 0.9 ? 'S' :
+        score >= perfectScore * 0.75 ? 'A' :
+        score >= perfectScore * 0.5 ? 'B' :
+        score >= perfectScore * 0.25 ? 'C' : 'D';
     document.getElementById("game-over-menu").style.display = "flex";
 });
 
@@ -804,7 +818,7 @@ let isPaused = false;
 let time = 0;
 
 function pauseGame() {
-    console.log('paused time: ', time);
+    // console.log('paused time: ', time);
     isPaused = true;
     clock.getDelta(); // to avoid large delta on unpause
     pauseMusic();
@@ -813,11 +827,11 @@ function pauseGame() {
 }
 
 function unpauseGame() {
-    console.log('unpaused time: ', time);
+    // console.log('unpaused time: ', time);
     isPaused = false;
     clock.getDelta(); // to avoid large delta on unpause
     pauseMenu.style.display = "none";
-    startMusic();
+    audio.play();
 }
 
 function animate() {
