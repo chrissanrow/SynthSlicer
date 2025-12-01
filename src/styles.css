@@ -1,0 +1,74 @@
+@font-face {
+    font-family: 'Trench';
+    src: url('/fonts/trench100free.otf') format('opentype');
+}
+
+body { 
+    margin: 0; 
+    font-family: 'Trench', sans-serif;
+}
+
+h1 {
+    font-size: 6em;
+    color: white;
+    margin: 0.2em;
+}
+
+p {
+    font-size: 1.5em;
+    color: white;
+    margin: 0;
+    margin-bottom: 0.5em; 
+}
+
+button {
+    font-size: 1.5em;
+    padding: 0.5em 1em;
+    margin-top: .5em;
+    cursor: pointer;
+    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    background: radial-gradient(#fe019a, #00FFFF);
+    border: none; 
+}
+
+button:hover {
+    background: radial-gradient(#00FFFF, #fe019a);
+}
+
+input {
+    font-size: 1.2em;
+    color: white;
+    background: radial-gradient(#3f87a6, #000000);
+    border: none;
+    padding: 0.5em;
+}
+
+.menu {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+#start-menu {
+    background: radial-gradient(farthest-side, #00FFFF, #3f87a6, #000000);
+}
+
+#game-paused-menu {
+    background: radial-gradient(farthest-side, #39ff14, #3f87a6, #000000);
+    display: none;
+}
+
+#game-over-menu {
+    background: radial-gradient(farthest-side, #fe019a, #3f87a6, #000000);
+    display: none;
+}
+
+#levels-div {
+    display: flex;
+    gap: 1em;
+    margin-bottom: 1em;
+}
