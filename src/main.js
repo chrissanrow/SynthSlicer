@@ -25,11 +25,13 @@ const clock = new THREE.Clock();
 // Lane positions and colors (left -> right)
 const LANE_POSITIONS = [-3, -1, 1, 3];
 const LANE_COLORS = [0x00FFFF, 0xfe019a, 0x000000, 0x703be7];
+const TRACK_COLOR = 0x631C99; // dark purple
+const BG_COLOR = 0x080e12; // dark grayish blue
 
 // ---Three.js Setup---
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color( 0x191a1f ); 
+scene.background = new THREE.Color( BG_COLOR ); 
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
 const renderer = new THREE.WebGLRenderer();
@@ -335,7 +337,7 @@ scene.add( new THREE.AmbientLight( 0x404040, 1.5 ) );
 
 const trackGeometry = new THREE.PlaneGeometry( 50, 500 );
 const trackMaterialProperties = {
-    color: 0x631C99,
+    color: TRACK_COLOR || 0x631C99,
     ambient: 1.0,
     diffusivity: 0.2,
     specularity: 0.2,
