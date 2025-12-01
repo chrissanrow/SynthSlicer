@@ -720,7 +720,7 @@ async function loadGame(audio) {
     beatIndex = 0;
     clock.elapsedTime = 0;
     clock.start();
-    activeNotes.forEach(note => scene.remove(note));
+    activeNotes.forEach(note => { scene.remove(note); scene.remove(note.userData.shadow); });
     activeNotes = [];
     // Ensure materials that expect updated uniforms have them before a manual render
     try {
