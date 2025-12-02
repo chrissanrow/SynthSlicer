@@ -533,24 +533,24 @@ function updateScore() {
     texture.needsUpdate = true; 
 }
 
-//Mashab
 // --- FEEDBACK TEXT SETUP (Perfect/Good/Miss) ---
-const feedbackCanvas = document.createElement('canvas');
-feedbackCanvas.width = 512; 
-feedbackCanvas.height = 128;
-const fbCtx = feedbackCanvas.getContext('2d');
-
-const fbTexture = new THREE.CanvasTexture(feedbackCanvas);
-const fbMaterial = new THREE.SpriteMaterial({ map: fbTexture, transparent: true, opacity: 0 }); 
-const feedbackSprite = new THREE.Sprite(fbMaterial);
-feedbackSprite.scale.set(6, 1.5, 1);
-feedbackSprite.position.set(0, 4, -4); 
-scene.add(feedbackSprite);
-
-let feedbackTimer = null; 
+let currentFeedback = []; 
 
 function showFeedback(text, colorHex, position) {
-    // Optionally move the feedback sprite to a world-space `position` (THREE.Vector3)
+    const feedbackCanvas = document.createElement('canvas');
+    feedbackCanvas.width = 512; 
+    feedbackCanvas.height = 128;
+    const fbCtx = feedbackCanvas.getContext('2d');
+
+    const fbTexture = new THREE.CanvasTexture(feedbackCanvas);
+    const fbMaterial = new THREE.SpriteMaterial({ map: fbTexture, transparent: true, opacity: 1 }); 
+    const feedbackSprite = new THREE.Sprite(fbMaterial);
+    feedbackSprite.scale.set(6, 1.5, 1);
+    feedbackSprite.position.set(0, 4, -4); 
+
+    currentFeedback.push(feedbackSprite);
+    scene.add(feedbackSprite);
+
     if (position && position.isVector3) {
         feedbackSprite.position.copy(position);
     }
@@ -568,17 +568,7 @@ function showFeedback(text, colorHex, position) {
     fbCtx.fillText(text, feedbackCanvas.width / 2, feedbackCanvas.height / 2);
     
     fbTexture.needsUpdate = true;
-
-    feedbackSprite.material.opacity = 1;
-    
-    // Сбрасываем старый таймер и ставим новый, чтобы текст исчез через 1 сек
-    if (feedbackTimer) clearTimeout(feedbackTimer);
-    feedbackTimer = setTimeout(() => {
-        feedbackSprite.material.opacity = 0;
-    }, 1000);
 }
-
-//Mashaend
 
 // ---Controls---
 
@@ -916,6 +906,21 @@ function animate() {
         {
             scene.remove(hitShere);
             hitSpheres.splice(j, 1);
+        }
+    }
+
+    for (const feedbackSprite of currentFeedback) {
+        feedbackSprite.material.opacity -= 0.02;
+        feedbackSprite.position.y += 0.01;
+        if (feedbackSprite.material.opacity <= 0) {
+            scene.remove(feedbackSprite);
+            // remove and dispose of texture material, canvas to free memory
+            const texture = feedbackSprite.material.map;
+            texture.dispose();
+            feedbackSprite.material.dispose();
+            let canvas = texture.image;
+            canvas = null;
+            currentFeedback.splice(currentFeedback.indexOf(feedbackSprite), 1);
         }
     }
 
