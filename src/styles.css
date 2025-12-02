@@ -72,3 +72,8 @@ input {
     gap: 1em;
     margin-bottom: 1em;
 }
+
+canvas {
+    opacity: 1; 
+    transition: opacity 0.5s ease-out;
+}

@@ -22,10 +22,16 @@ let score = 0;
 
 const clock = new THREE.Clock();
 
+// Lane positions and colors (left -> right)
+const LANE_POSITIONS = [-3, -1, 1, 3];
+const LANE_COLORS = [0x00FFFF, 0xfe019a, 0x000000, 0x703be7];
+const TRACK_COLOR = 0x631C99; // dark purple
+const BG_COLOR = 0x080e12; // dark grayish blue
+
 // ---Three.js Setup---
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color( 0.5, 0.5, 0.5 ); // Sky blue background
+scene.background = new THREE.Color( BG_COLOR ); 
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
 const renderer = new THREE.WebGLRenderer();
@@ -49,7 +55,7 @@ hitShere.position.set(0, 2, -5);
 scene.add(hitShere); */
 
 
-camera.position.set(0, 2, 0);
+camera.position.set(0, 4, 0);
 camera.lookAt(0, 2, -10);
 
 // Transformation Matrices
@@ -225,7 +231,7 @@ function obscuredMaterial(materialProperties) {
         light_positions_or_vectors: { value: [] },
         light_colors: { value: [] },
         light_attenuation_factors: { value: [] },
-        fog_color: { value: new THREE.Vector4(0.5, 0.5, 0.5, 1.0) },
+        fog_color: { value: new THREE.Vector4(0.2, 0.8, 0.8, 1.0) },
         zf: { value: materialProperties.zf || 5.0 },
         zb: { value: materialProperties.zb || 35.0 },
         sf: { value: materialProperties.sf || 1.0 },
@@ -331,7 +337,7 @@ scene.add( new THREE.AmbientLight( 0x404040, 1.5 ) );
 
 const trackGeometry = new THREE.PlaneGeometry( 50, 500 );
 const trackMaterialProperties = {
-    color: 0x808080,
+    color: TRACK_COLOR || 0x631C99,
     ambient: 1.0,
     diffusivity: 0.2,
     specularity: 0.2,
@@ -351,7 +357,7 @@ scene.add( track );
 
 // --- SHADOWS SETUP (Planar Projection) --- Mashab
 const shadowMaterial = new THREE.MeshBasicMaterial({
-    color: 0x000000,
+    color: 0x220a57,
     transparent: true,
     opacity: 0.6
 });
@@ -383,7 +389,7 @@ const vertices = new Float32Array( [
     0.5, -0.5, 0.0
 ] );
 triangleGeometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-const triangleMaterial = new THREE.MeshBasicMaterial( { side: THREE.DoubleSide } );
+// const triangleMaterial = new THREE.MeshBasicMaterial( { side: THREE.DoubleSide } );
 
 const HIT_ZONES = {
     'Left': { box: new THREE.Box3(new THREE.Vector3(-4, 0, HIT_ZONE_Z - 1), new THREE.Vector3(-2, 2, HIT_ZONE_Z + 1)), triangleRotation: Math.PI / 2 },
@@ -397,18 +403,22 @@ for(let key in HIT_ZONES) {
     const center = zone.box.getCenter(new THREE.Vector3());
     const size = zone.box.getSize(new THREE.Vector3());
     const geometry = new THREE.BoxGeometry(size.x, size.y, size.z);
-    const material = new THREE.MeshBasicMaterial( { color: 0xffffff, transparent: true, opacity: 0.25, wireframe: true } );
+    // Map hit zone keys to lane indices (Left, Down, Up, Right)
+    const zoneToLaneIndex = { 'Left': 0, 'Down': 1, 'Up': 2, 'Right': 3 };
+    const laneIndex = zoneToLaneIndex[key] !== undefined ? zoneToLaneIndex[key] : 0;
+    const laneColor = LANE_COLORS[laneIndex] || 0xffffff;
+    const material = new THREE.MeshBasicMaterial( { color: laneColor, transparent: true, opacity: 0.25, wireframe: true } );
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.copy(center);
     mesh.translateY(1);
     scene.add(mesh);
 
-    // Add directional indicator
+    const triangleMaterial = new THREE.MeshBasicMaterial({ color: laneColor, side: THREE.DoubleSide });
     const triangle = new THREE.Mesh(triangleGeometry, triangleMaterial);
     triangle.position.set(center.x, center.y + 3, center.z);
     triangle.rotation.z = zone.triangleRotation;
-
+    triangle.scale.set(0.8, 0.8, 0.8);
     scene.add(triangle);
 }
 
@@ -417,19 +427,27 @@ for(let key in HIT_ZONES) {
 const noteGeometry = new THREE.BoxGeometry(1.5, 1.5, 0.5);
 
 const noteMaterialProperties = {
-    color: 0x800080,
+    color: 0xffffff,
     ambient: 0.8,
     diffusivity: 0.7,
     specularity: 0.5,
     smoothness: 20.0
 };
 
-const noteMaterial = obscuredMaterial(noteMaterialProperties);
+// const noteMaterial = obscuredMaterial(noteMaterialProperties);
 let activeNotes = [];
 
-function createNote(positionX, positionY, positionZ) {
-    const note = new THREE.Mesh(noteGeometry, noteMaterial.clone());
-    note.position.set(positionX, positionY, positionZ);
+function createNote(laneIndex) {
+
+    const positionY = 2;
+    const positionZ = -40;
+
+    const laneColor = LANE_COLORS[laneIndex] || noteMaterialProperties.color;
+    const props = Object.assign({}, noteMaterialProperties, { color: laneColor });
+    const material = obscuredMaterial(props);
+
+    const note = new THREE.Mesh(noteGeometry, material);
+    note.position.set(LANE_POSITIONS[laneIndex], positionY, positionZ);
     note.castShadow = true;
     scene.add(note);
     activeNotes.push(note);
@@ -493,7 +511,7 @@ ctx.shadowOffsetY = 2;
 ctx.shadowBlur = 4;
 const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
 gradient.addColorStop(0, 'blue');
-gradient.addColorStop(1, 'green');
+gradient.addColorStop(1, '#fe0151ff');
 ctx.fillStyle = gradient;
 
 // initial text
@@ -505,8 +523,15 @@ const texture = new THREE.CanvasTexture(canvas);
 const material = new THREE.SpriteMaterial({ map: texture });
 const scoreSprite = new THREE.Sprite(material);
 scoreSprite.scale.set(4, 2, 1);
-scoreSprite.position.set(0, 4.5, -4);
+scoreSprite.position.set(0, 5, -4);
 scene.add(scoreSprite);
+
+// dynamically update text
+function updateScore() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillText('Score: ' + score, canvas.width/2, canvas.height/2);
+    texture.needsUpdate = true; 
+}
 
 //Mashab
 // --- FEEDBACK TEXT SETUP (Perfect/Good/Miss) ---
@@ -519,14 +544,18 @@ const fbTexture = new THREE.CanvasTexture(feedbackCanvas);
 const fbMaterial = new THREE.SpriteMaterial({ map: fbTexture, transparent: true, opacity: 0 }); 
 const feedbackSprite = new THREE.Sprite(fbMaterial);
 feedbackSprite.scale.set(6, 1.5, 1);
-feedbackSprite.position.set(0, 3.0, -4); 
+feedbackSprite.position.set(0, 4, -4); 
 scene.add(feedbackSprite);
 
 let feedbackTimer = null; 
 
-function showFeedback(text, colorHex) {
+function showFeedback(text, colorHex, position) {
+    // Optionally move the feedback sprite to a world-space `position` (THREE.Vector3)
+    if (position && position.isVector3) {
+        feedbackSprite.position.copy(position);
+    }
     fbCtx.clearRect(0, 0, feedbackCanvas.width, feedbackCanvas.height);
-    fbCtx.font = 'bold 60px Trench, sans-serif'; 
+    fbCtx.font = 'bold 36px Trench, sans-serif'; 
     fbCtx.textAlign = 'center';
     fbCtx.textBaseline = 'middle';
     
@@ -550,13 +579,6 @@ function showFeedback(text, colorHex) {
 }
 
 //Mashaend
-
-// dynamically update text
-function updateScore() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillText('Score: ' + score, canvas.width/2, canvas.height/2);
-    texture.needsUpdate = true; 
-}
 
 // ---Controls---
 
@@ -617,6 +639,10 @@ function checkHit(key) {
     }
 
     let hitFound = false; 
+    let hitColor = 0x800080; // Default Purple
+    let hitText = "";
+    let textColor = "";
+    let points = 0;
 
     for(let i = activeNotes.length - 1; i >= 0; i--) {
         const note = activeNotes[i];
@@ -628,11 +654,6 @@ function checkHit(key) {
             // --- РАСЧЕТ ТОЧНОСТИ ---
             // Считаем разницу между позицией ноты и идеальным центром (-5)
             const diff = Math.abs(note.position.z - HIT_ZONE_Z);
-            
-            let hitColor = 0x800080; // Default Purple
-            let hitText = "";
-            let textColor = "";
-            let points = 0;
 
             if (diff < 0.4) { 
                 hitColor = 0xFF00FF;
@@ -650,7 +671,6 @@ function checkHit(key) {
                 textColor = "#8400ffff";
                 points = 10;
             }
-            showFeedback(hitText, textColor);
 
             const hitSphere = new THREE.Mesh(hitSphereGeometry, hitSPhereMaterial.clone());
             hitSphere.material.color.setHex(hitColor);
@@ -668,13 +688,19 @@ function checkHit(key) {
             score += points;
             updateScore();
             
-            return; 
+            break; 
         }
     }
 
     if (!hitFound) {
-        showFeedback("MISS", "#FF0000"); 
+        hitText = "MISS";
+        textColor = "#FF0000";
     }
+
+    // position feedback above the hit zone
+    const zoneCenter = zone.box.getCenter(new THREE.Vector3());
+    const feedbackPos = new THREE.Vector3(zoneCenter.x, zoneCenter.y + 2.0, zoneCenter.z);
+    showFeedback(hitText, textColor, feedbackPos);
 }
 
 document.addEventListener('keydown', onKeyDown, false);
@@ -773,7 +799,13 @@ if (customAudioInput) {
 }
 
 audio.addEventListener('ended', () => {
-    document.getElementById("final-score-span").innerHTML = score;
+    let perfectScore = beatmap.length * 50;
+    document.getElementById("final-score-span").innerHTML = score + ' / ' + perfectScore;
+    document.getElementById("final-rank-span").innerHTML = 
+        score >= perfectScore * 0.9 ? 'S' :
+        score >= perfectScore * 0.75 ? 'A' :
+        score >= perfectScore * 0.5 ? 'B' :
+        score >= perfectScore * 0.25 ? 'C' : 'D';
     document.getElementById("game-over-menu").style.display = "flex";
 });
 
@@ -806,7 +838,7 @@ let isPaused = false;
 let time = 0;
 
 function pauseGame() {
-    console.log('paused time: ', time);
+    // console.log('paused time: ', time);
     isPaused = true;
     clock.getDelta(); // to avoid large delta on unpause
     pauseMusic();
@@ -815,11 +847,11 @@ function pauseGame() {
 }
 
 function unpauseGame() {
-    console.log('unpaused time: ', time);
+    // console.log('unpaused time: ', time);
     isPaused = false;
     clock.getDelta(); // to avoid large delta on unpause
     pauseMenu.style.display = "none";
-    startMusic();
+    audio.play();
 }
 
 function animate() {
@@ -832,9 +864,10 @@ function animate() {
     // Spawn notes based on beatmap timing
     if (beatIndex < beatmap.length) {
         while(beatIndex < beatmap.length && time >= beatmap[beatIndex].time) {
-            const lanePositions = [-3, -1, 1, 3];
+            // const lanePositions = [-3, -1, 1, 3];
             const lane = beatmap[beatIndex].lane;
-            createNote(lanePositions[lane], 2, -40);
+            // createNote(LANE_POSITIONS[lane], 2, -40);
+            createNote(lane);
             beatIndex++;
         }
     }
