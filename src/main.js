@@ -710,7 +710,9 @@ function pauseMusic() {
 let beatmap = [];
 let beatIndex = 0;
 
-async function loadGame(audio) {
+let fluxThreshold = 500;
+
+async function loadGame(audio, threshold) {
     // reset game state
     score = 0;
     updateScore();
@@ -728,7 +730,7 @@ async function loadGame(audio) {
         console.warn('Render error during loadGame:', err);
     }
 
-    beatmap = await generateBeatmap(audio);
+    beatmap = await generateBeatmap(audio, threshold);
     beatmapLoaded = true;
     gameRunning = true;
     setTimeout(startMusic, (NOTE_TRAVEL_TIME - beatmap[0].time) * 1000); // Adjust for initial delay
@@ -753,11 +755,23 @@ document.querySelectorAll(".level-button").forEach(btn => {
     audio.pause();
     audio.currentTime = 0;
 
-    loadGame(audioURL); 
+    loadGame(audioURL, fluxThreshold); 
 
     // Hide overlay
    startMenu.style.display = "none";
   });
+});
+
+document.querySelectorAll(".difficulty-button").forEach(btn => {
+    btn.addEventListener("click", () => {
+        fluxThreshold = parseInt(btn.dataset.threshold);
+        console.log('Set flux threshold to', fluxThreshold);
+        // Update button styles to indicate selection
+        document.querySelectorAll(".difficulty-button").forEach(b => {
+            b.classList.remove("selected-difficulty");
+        });
+        btn.classList.add("selected-difficulty");
+    });
 });
 
 // Handle user-uploaded custom audio file
@@ -781,7 +795,7 @@ if (customAudioInput) {
         }
 
         // Pass the File object to the beatmap generator
-        loadGame(file);
+        loadGame(file, fluxThreshold);
 
         // Hide the start menu
         startMenu.style.display = 'none';
@@ -800,7 +814,7 @@ audio.addEventListener('ended', () => {
 });
 
 document.getElementById("play-again-button").addEventListener("click", () => {    
-    loadGame(audio.src);
+    loadGame(audio.src, fluxThreshold);
     gameOverMenu.style.display = "none";
 });
 
@@ -829,6 +843,7 @@ let time = 0;
 
 function pauseGame() {
     // console.log('paused time: ', time);
+    // console.log('Paused audio time: ', audio.currentTime);
     isPaused = true;
     clock.getDelta(); // to avoid large delta on unpause
     pauseMusic();

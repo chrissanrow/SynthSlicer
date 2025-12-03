@@ -3,7 +3,7 @@ import Meyda from 'meyda';
 const SAMPLE_RATE = 8000; // downsampled rate for analysis
 const FRAME_SIZE = 2048; // size of the analysis window (FFT size)
 
-async function generateBeatmap(audioSource) {
+async function generateBeatmap(audioSource, fluxThreshold) {
     const audioContext = new (window.AudioContext || window.webkitAudioContext)({
         sampleRate: SAMPLE_RATE
     });
@@ -46,7 +46,7 @@ async function generateBeatmap(audioSource) {
     // beatmap generation based on spectral flux peaks
     const beatmap = [];
     // TODO: tune this to work for many songs
-    const fluxThreshold = 500;
+    //const fluxThreshold = 500;
     const framesPerSecond = SAMPLE_RATE / FRAME_SIZE;
 
     for (let i = 1; i < spectralFlux.length; i++) {

@@ -53,6 +53,15 @@ input {
     z-index: 9999;
 }
 
+.selected-difficulty {
+    border: 3px solid yellow;
+}
+
+#difficulty-div{
+    margin-top: 1em;
+    text-align: center;
+}
+
 #start-menu {
     background: radial-gradient(farthest-side, #00FFFF, #3f87a6, #000000);
 }
