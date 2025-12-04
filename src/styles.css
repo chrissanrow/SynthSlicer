@@ -24,7 +24,7 @@ p {
 button {
     font-size: 1.5em;
     padding: 0.5em 1em;
-    margin-top: .5em;
+    margin-bottom: .5em;
     cursor: pointer;
     font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
     background: radial-gradient(#fe019a, #00FFFF);
@@ -54,7 +54,8 @@ input {
 }
 
 .selected-difficulty {
-    border: 3px solid yellow;
+    color: white;
+    background: radial-gradient(#3f87a6, #000000);
 }
 
 #difficulty-div{

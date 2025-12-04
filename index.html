@@ -12,7 +12,28 @@
 		<div id="start-menu" class="menu">
 			<h1>Synth Slicer</h1>
 			<p>Use arrow keys to slice notes</p>
+			
+			<div id="difficulty-div">
+				<p>Select Difficulty:</p>
+				<button 
+					class="difficulty-button" 
+					data-threshold="750">
+					Easy
+				</button>
+				<button 
+					class="difficulty-button selected-difficulty" 
+					data-threshold="500">
+					Medium
+				</button>
+				<button 
+					class="difficulty-button"
+					data-threshold="250">
+					Hard
+				</button>
+			</div>
+
 			<p>Press 'Esc' to pause the game</p>
+
 			<div id="levels-div">
 				<button 
 					class="level-button" 
@@ -32,12 +53,12 @@
 					data-difficulty="easy">
 					Shortcake
 				</button>
-				<button 
+				<!-- <button 
 					class="level-button" 
 					data-audio="fluidvolt - frog roulette (mp3cut.net)" 
 					data-difficulty="easy">
 					fluidvolt (short - for testing)
-				</button>
+				</button> -->
 			</div>
 			<p>Upload an mp3 file:</p>
 			<input
@@ -45,24 +66,6 @@
 				id="custom-audio-input" 
 				accept=".mp3">
 			</input>
-			<div id="difficulty-div">
-				<p>Select Difficulty:</p>
-				<button 
-					class="difficulty-button" 
-					data-threshold="750">
-					Easy
-				</button>
-				<button 
-					class="difficulty-button selected-difficulty" 
-					data-threshold="500">
-					Medium
-				</button>
-				<button 
-					class="difficulty-button"
-					data-threshold="250">
-					Hard
-				</button>
-			</div>
 		</div>
 
 		<div id="game-paused-menu" class="menu">
