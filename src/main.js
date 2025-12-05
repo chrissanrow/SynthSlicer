@@ -640,9 +640,7 @@ function checkHit(key) {
         const noteBox = new THREE.Box3().setFromObject(note);
         
         if(zone.box.intersectsBox(noteBox)) {
-            hitFound = true;
-            console.log(audio.currentTime);
-            
+            hitFound = true;            
             // --- РАСЧЕТ ТОЧНОСТИ ---
             // Считаем разницу между позицией ноты и идеальным центром (-5)
             const diff = Math.abs(note.position.z - HIT_ZONE_Z);
@@ -702,9 +700,7 @@ document.addEventListener('keydown', onKeyDown, false);
 const audio = new Audio();
 
 function startMusic() {
-    audio.play();
-    // console.log('Music started');
-}
+    audio.play();}
 function pauseMusic() {
     audio.pause();
 }
@@ -738,8 +734,7 @@ async function loadGame(audio, threshold) {
     gameRunning = true;
 
     startMusic();
-    console.log('Generated Beatmap:', beatmap);
-    // console.log('Starting offset', (NOTE_TRAVEL_TIME - beatmap[0].time) * 1000);
+    //console.log('Generated Beatmap:', beatmap);
 }
 
 // ---- event listeners for menu controls and buttons ----
