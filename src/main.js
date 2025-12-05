@@ -11,9 +11,11 @@ const SPAWN_Z = -40;
 
 const FPS = 60; // assumed fps
 
+/*
 const NOTE_TRAVEL_DISTANCE = Math.abs(SPAWN_Z) - Math.abs(HIT_ZONE_Z);
-const NOTE_TRAVEL_TIME = NOTE_TRAVEL_DISTANCE / (NOTE_DELTA * FPS);
-console.log('NOTE_TRAVEL_TIME:', NOTE_TRAVEL_TIME);
+*/
+const NOTE_VELOCITY = 15.0; // units per second
+const NOTE_TRAVEL_TIME = (Math.abs(SPAWN_Z) - Math.abs(HIT_ZONE_Z)) / NOTE_VELOCITY; // time for note to travel from spawn to hit zone
 
 let gameRunning = false;
 let beatmapLoaded = false;
@@ -44,16 +46,11 @@ renderer.shadowMap.enabled = true;
 const hitSpheres = [];
 
 const hitSphereGeometry = new THREE.SphereGeometry(0.7, 16, 16);
-const hitSPhereMaterial = new THREE.MeshBasicMaterial({
+const hitSphereMaterial = new THREE.MeshBasicMaterial({
     color: 0x800080,
     transparent: true, 
     opacity: 1.0
 })
-
-/* let hitShere = new THREE.Mesh(hitSphereGeometry, hitSPhereMaterial);
-hitShere.position.set(0, 2, -5);
-scene.add(hitShere); */
-
 
 camera.position.set(0, 4, 0);
 camera.lookAt(0, 2, -10);
@@ -435,9 +432,10 @@ const noteMaterialProperties = {
 };
 
 // const noteMaterial = obscuredMaterial(noteMaterialProperties);
+
 let activeNotes = [];
 
-function createNote(laneIndex) {
+function createNote(laneIndex, time) {
 
     const positionY = 2;
     const positionZ = -40;
@@ -450,7 +448,10 @@ function createNote(laneIndex) {
     note.position.set(LANE_POSITIONS[laneIndex], positionY, positionZ);
     note.castShadow = true;
     scene.add(note);
-    activeNotes.push(note);
+    activeNotes.push({
+        note: note,
+        targetTime: time
+    });
 
     const shadow = new THREE.Mesh(noteGeometry, shadowMaterial);
     shadow.matrixAutoUpdate = false; 
@@ -635,11 +636,12 @@ function checkHit(key) {
     let points = 0;
 
     for(let i = activeNotes.length - 1; i >= 0; i--) {
-        const note = activeNotes[i];
+        const note = activeNotes[i].note;
         const noteBox = new THREE.Box3().setFromObject(note);
         
         if(zone.box.intersectsBox(noteBox)) {
             hitFound = true;
+            console.log(audio.currentTime);
             
             // --- РАСЧЕТ ТОЧНОСТИ ---
             // Считаем разницу между позицией ноты и идеальным центром (-5)
@@ -662,7 +664,7 @@ function checkHit(key) {
                 points = 10;
             }
 
-            const hitSphere = new THREE.Mesh(hitSphereGeometry, hitSPhereMaterial.clone());
+            const hitSphere = new THREE.Mesh(hitSphereGeometry, hitSphereMaterial.clone());
             hitSphere.material.color.setHex(hitColor);
             hitSphere.position.copy(note.position);
             scene.add(hitSphere);
@@ -718,9 +720,10 @@ async function loadGame(audio, threshold) {
     updateScore();
     beatIndex = 0;
     isPaused = false;
+    beatmapLoaded = false;
     time = 0;
     clock.getDelta();
-    activeNotes.forEach(note => { scene.remove(note); scene.remove(note.userData.shadow); });
+    activeNotes.forEach(noteObject => { scene.remove(noteObject.note); scene.remove(noteObject.note.userData.shadow); });
     activeNotes = [];
     // Ensure materials that expect updated uniforms have them before a manual render
     try {
@@ -733,9 +736,10 @@ async function loadGame(audio, threshold) {
     beatmap = await generateBeatmap(audio, threshold);
     beatmapLoaded = true;
     gameRunning = true;
-    setTimeout(startMusic, (NOTE_TRAVEL_TIME - beatmap[0].time) * 1000); // Adjust for initial delay
+
+    startMusic();
     console.log('Generated Beatmap:', beatmap);
-    console.log('Starting offset', (NOTE_TRAVEL_TIME - beatmap[0].time) * 1000);
+    // console.log('Starting offset', (NOTE_TRAVEL_TIME - beatmap[0].time) * 1000);
 }
 
 // ---- event listeners for menu controls and buttons ----
@@ -815,6 +819,7 @@ audio.addEventListener('ended', () => {
 
 document.getElementById("play-again-button").addEventListener("click", () => {    
     loadGame(audio.src, fluxThreshold);
+    audio.currentTime = 0;
     gameOverMenu.style.display = "none";
 });
 
@@ -868,37 +873,46 @@ function animate() {
 
     // Spawn notes based on beatmap timing
     if (beatIndex < beatmap.length) {
-        while(beatIndex < beatmap.length && time >= beatmap[beatIndex].time) {
-            // const lanePositions = [-3, -1, 1, 3];
-            const lane = beatmap[beatIndex].lane;
-            // createNote(LANE_POSITIONS[lane], 2, -40);
-            createNote(lane);
+        while(beatIndex < beatmap.length && audio.currentTime >= (beatmap[beatIndex].time - NOTE_TRAVEL_TIME)) {
+            // TODO: perhaps allow spawning notes with time < 1.0
+            // for now, to avoid notes being too quick at the start of the song, only spawn if time >= 1.0
+            if(beatmap[beatIndex].time >= 1.0){
+                createNote(beatmap[beatIndex].lane, beatmap[beatIndex].time);
+            }
             beatIndex++;
         }
     }
 
     updateObscuredUniforms(track);
 
-    // Move active notes and update their uniforms, shadows Mashab
+    // Move active notes and update their uniforms
     for(let i = activeNotes.length - 1; i >= 0; i--) {
-        const note = activeNotes[i];
-        note.position.z += NOTE_DELTA;
+        const note = activeNotes[i].note;
+        const targetTime = activeNotes[i].targetTime;
+
+        // special case if audio hasn't started yet -> freeze note
+        if(audio.currentTime <= 0) {
+            let timeRemaining = audio.currentTime - targetTime;
+            let distanceToTravel = timeRemaining * NOTE_VELOCITY;
+            note.position.z = HIT_ZONE_Z + distanceToTravel;
+            updateObscuredUniforms(note);
+            continue;
+        }
+
+        let timeRemaining = audio.currentTime - targetTime;
+        let distanceToTravel = timeRemaining * NOTE_VELOCITY;
+        note.position.z = HIT_ZONE_Z + distanceToTravel;
 
         updateObscuredUniforms(note);
         
-        // 3. ОБНОВЛЯЕМ ТЕНЬ
         const shadow = note.userData.shadow;
         if (shadow) {
-            // Сначала берем позицию и поворот самой ноты
             note.updateMatrix();
-            // Умножаем матрицу проекции на мировую матрицу ноты
             // shadowMatrix * noteMatrix
             shadow.matrix.copy(shadowMatrix).multiply(note.matrix);
         }
 
-        // 4. Удаление, если улетела за экран
         if(note.position.z > -2.5) {
-            // Удаляем и ноту, и тень
             if (note.userData.shadow) {
                 scene.remove(note.userData.shadow);
                 note.userData.shadow = null;
@@ -907,7 +921,6 @@ function animate() {
             activeNotes.splice(i, 1);
         }
     }
-    //Mashaend
 
     for(let j = hitSpheres.length - 1; j >= 0; j--)
     {
