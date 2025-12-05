@@ -11,9 +11,6 @@ const SPAWN_Z = -40;
 
 const FPS = 60; // assumed fps
 
-/*
-const NOTE_TRAVEL_DISTANCE = Math.abs(SPAWN_Z) - Math.abs(HIT_ZONE_Z);
-*/
 const NOTE_VELOCITY = 15.0; // units per second
 const NOTE_TRAVEL_TIME = (Math.abs(SPAWN_Z) - Math.abs(HIT_ZONE_Z)) / NOTE_VELOCITY; // time for note to travel from spawn to hit zone
 
@@ -352,7 +349,7 @@ track.position.y = 0;
 track.position.z = -200;
 scene.add( track );
 
-// --- SHADOWS SETUP (Planar Projection) --- Mashab
+// --- SHADOWS SETUP (Planar Projection) ---
 const shadowMaterial = new THREE.MeshBasicMaterial({
     color: 0x220a57,
     transparent: true,
@@ -366,15 +363,12 @@ const Ly = 10;
 const Lz = 5;
 const floorHeight = 0.01;
 
-//M = [1, -Lx/Ly, 0, 0,  0, 0, 0, floor,  0, -Lz/Ly, 1, 0,  0, 0, 0, 1]
 shadowMatrix.set(
     1, -Lx / Ly, 0, 0,
     0,  0,       0, floorHeight,
     0, -Lz / Ly, 1, 0,
     0,  0,       0, 1
 );
-
-//----Mashaend
 
 // ---Hit Zones---
 
@@ -386,7 +380,6 @@ const vertices = new Float32Array( [
     0.5, -0.5, 0.0
 ] );
 triangleGeometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-// const triangleMaterial = new THREE.MeshBasicMaterial( { side: THREE.DoubleSide } );
 
 const HIT_ZONES = {
     'Left': { box: new THREE.Box3(new THREE.Vector3(-4, 0, HIT_ZONE_Z - 1), new THREE.Vector3(-2, 2, HIT_ZONE_Z + 1)), triangleRotation: Math.PI / 2 },
@@ -431,8 +424,6 @@ const noteMaterialProperties = {
     smoothness: 20.0
 };
 
-// const noteMaterial = obscuredMaterial(noteMaterialProperties);
-
 let activeNotes = [];
 
 function createNote(laneIndex, time) {
@@ -461,40 +452,6 @@ function createNote(laneIndex, time) {
 
     return note;
 }
-
-// score text
-// const loader = new FontLoader();
-// loader.load(
-//     'fonts/Trench_Thin.json',
-//     function (font) {
-//         console.log('FONT LOADED');
-//         // Make the debug text much smaller and centered so it's easy to spot.
-//         const geometry = new TextGeometry('SCORE:', {
-//             font: font,
-//             size: 1,
-//             depth: 0.1,
-//             height: 1,
-//             curveSegments: 5,
-//             bevelEnabled: false
-//         });
-
-//         // Center geometry so origin is in the middle of the text
-//         if (geometry.center) geometry.center();
-//         geometry.computeBoundingBox && geometry.computeBoundingBox();
-
-//         // Use a basic material (ignores lighting) and double-sided so we can always see it while debugging
-//         const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-//         const textMesh = new THREE.Mesh(geometry, material);
-//         // place text in front of the camera
-//         textMesh.position.set(0, 0, -4);
-//         textMesh.rotateX(-Math.PI / 2);
-//         scene.add(textMesh);
-//     },
-//     undefined,
-//     function (err) {
-//         console.error('FONT LOAD ERROR:', err);
-//     }
-// );
 
 // 1. Create HTML canvas
 const canvas = document.createElement('canvas');
@@ -587,12 +544,6 @@ function onKeyDown(event) {
         case 'k':
             checkHit(key);
             break;
-        /*
-        case 'Enter':
-            gameRunning = true;
-            startMusic();
-            break;
-        */
         case 'Escape':
             // unpause game if paused
             if (pauseMenu.style.display === "flex")
@@ -764,7 +715,6 @@ document.querySelectorAll(".level-button").forEach(btn => {
 document.querySelectorAll(".difficulty-button").forEach(btn => {
     btn.addEventListener("click", () => {
         fluxThreshold = parseInt(btn.dataset.threshold);
-        console.log('Set flux threshold to', fluxThreshold);
         // Update button styles to indicate selection
         document.querySelectorAll(".difficulty-button").forEach(b => {
             b.classList.remove("selected-difficulty");
@@ -842,8 +792,6 @@ let isPaused = false;
 let time = 0;
 
 function pauseGame() {
-    // console.log('paused time: ', time);
-    // console.log('Paused audio time: ', audio.currentTime);
     isPaused = true;
     clock.getDelta(); // to avoid large delta on unpause
     pauseMusic();
@@ -852,7 +800,6 @@ function pauseGame() {
 }
 
 function unpauseGame() {
-    // console.log('unpaused time: ', time);
     isPaused = false;
     clock.getDelta(); // to avoid large delta on unpause
     pauseMenu.style.display = "none";
