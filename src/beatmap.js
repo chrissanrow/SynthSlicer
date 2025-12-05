@@ -45,8 +45,6 @@ async function generateBeatmap(audioSource, fluxThreshold) {
     
     // beatmap generation based on spectral flux peaks
     const beatmap = [];
-    // TODO: tune this to work for many songs
-    //const fluxThreshold = 500;
     const framesPerSecond = SAMPLE_RATE / FRAME_SIZE;
 
     for (let i = 1; i < spectralFlux.length; i++) {
