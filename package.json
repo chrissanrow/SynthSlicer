@@ -1,10 +1,15 @@
 {
   "name": "synthslicer",
+  "homepage": "https://chrissanrow.github.io/SynthSlicer/",
   "version": "1.0.0",
   "description": "",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "predeploy": "npm run build",
+    "build": "vite build",
+    "dev": "vite",
+    "deploy": "gh-pages -d dist -b gh-pages --nojekyll"
   },
   "keywords": [],
   "author": "",
@@ -14,6 +19,7 @@
     "three": "^0.181.1"
   },
   "devDependencies": {
+    "gh-pages": "^6.3.0",
     "vite": "^7.2.2"
   }
 }

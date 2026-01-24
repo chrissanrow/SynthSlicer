@@ -7,5 +7,6 @@ export default defineConfig({
       usePolling: true,
       interval: 100 // ms; increase or decrease as needed
     }
-  }
+  },
+  base: "/SynthSlicer",
 });
