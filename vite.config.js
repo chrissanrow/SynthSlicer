@@ -8,5 +8,5 @@ export default defineConfig({
       interval: 100 // ms; increase or decrease as needed
     }
   },
-  base: "/SynthSlicer",
+  base: "/SynthSlicer/",
 });
